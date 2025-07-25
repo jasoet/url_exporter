@@ -66,3 +66,4 @@ temp/
 # Application specific
 url-exporter
 url-exporter-*
+node_modules/
