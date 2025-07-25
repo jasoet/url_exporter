@@ -87,8 +87,8 @@ url-exporter/
 │   ├── checker/            # URL checking logic
 │   ├── metrics/            # Prometheus metrics implementation
 │   └── server/             # HTTP server setup
-├── deployments/            # Deployment configurations
 ├── configs/                # Example configuration files
+├── Dockerfile              # Docker container configuration
 └── docs/                   # Project documentation
 ```
 

@@ -111,7 +111,7 @@ tasks:
   docker-build:
     desc: Build Docker image
     cmds:
-      - docker build -f deployments/docker/Dockerfile -t {{.DOCKER_IMAGE}}:{{.VERSION}} .
+      - docker build -t {{.DOCKER_IMAGE}}:{{.VERSION}} .
 
   # Run Docker container
   docker-run:

@@ -40,7 +40,7 @@ curl http://localhost:8080/metrics
 
 ```bash
 # Build the image
-docker build -f deployments/docker/Dockerfile -t url-exporter:latest .
+docker build -t url-exporter:latest .
 
 # Run with environment variables
 docker run -p 8080:8080 \
@@ -154,7 +154,7 @@ For URL `https://api.service.com/health`:
 
 ```bash
 # Build image
-docker build -f deployments/docker/Dockerfile -t url-exporter:latest .
+docker build -t url-exporter:latest .
 
 # Run container
 docker run -d \
@@ -164,36 +164,26 @@ docker run -d \
   url-exporter:latest --config=/config.yaml
 ```
 
-### Kubernetes
+### Docker Compose (Optional)
 
-```bash
-# Apply configuration
-kubectl apply -f deployments/kubernetes/configmap.yaml
-kubectl apply -f deployments/kubernetes/deployment.yaml
-
-# Check status
-kubectl get pods -l app=url-exporter
-kubectl get svc url-exporter
-```
-
-### Systemd
-
-```bash
-# Copy binary
-sudo cp url-exporter /usr/local/bin/
-
-# Create user
-sudo useradd --system --shell /bin/false url-exporter
-
-# Copy configuration
-sudo mkdir -p /etc/url-exporter
-sudo cp config.yaml /etc/url-exporter/
-
-# Install service
-sudo cp deployments/systemd/url-exporter.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable url-exporter
-sudo systemctl start url-exporter
+Create `docker-compose.yml`:
+```yaml
+version: '3.8'
+services:
+  url-exporter:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - URL_TARGETS=https://google.com,https://github.com
+      - URL_LOG_LEVEL=info
+      - URL_CHECK_INTERVAL=30s
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 ```
 
 ## Prometheus Configuration
