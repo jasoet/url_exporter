@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/jasoet/url_exporter/compare/v2.0.0...v2.1.0) (2025-07-25)
+
+
+### Features
+
+* update build metadata to reflect personal attribution ([23956e0](https://github.com/jasoet/url_exporter/commit/23956e058985a2fceb4fbf5f43d173127c8c5960))
+
 # [2.0.0](https://github.com/jasoet/url_exporter/compare/v1.0.0...v2.0.0) (2025-07-25)
 
 
