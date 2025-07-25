@@ -1,3 +1,19 @@
+# [2.0.0](https://github.com/jasoet/url_exporter/compare/v1.0.0...v2.0.0) (2025-07-25)
+
+
+### Features
+
+* implement comprehensive metrics and version integration ([3182f94](https://github.com/jasoet/url_exporter/commit/3182f94afd309af120f4404457599dcf2a741779))
+
+
+### BREAKING CHANGES
+
+* Server constructor now requires version information parameter
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
 # 1.0.0 (2025-07-25)
 
 
