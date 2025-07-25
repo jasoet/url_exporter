@@ -121,9 +121,7 @@ export URL_CONFIG_FILE="/path/to/your/config.yaml"
 
 **Priority 2:** Standard locations (searched in order):
 1. `./config.yaml` (current directory)
-2. `./configs/config.yaml` 
-3. `/etc/url-exporter/config.yaml`
-4. `~/.url-exporter/config.yaml` (user home directory)
+2. `~/.url-exporter/config.yaml` (user home directory)
 
 If no config file is found, the application falls back to embedded defaults.
 
@@ -140,7 +138,7 @@ The exporter provides the following Prometheus metrics:
 ### Primary Metrics
 
 - **`url_up{url, host, path, instance}`** - Binary metric (1 if URL returns 2xx status, 0 otherwise)
-- **`url_response_time_seconds{url, host, path, instance}`** - Response time in seconds
+- **`url_response_time_milliseconds{url, host, path, instance}`** - Response time in milliseconds
 - **`url_http_status_code{url, host, path, instance}`** - HTTP status code returned
 - **`url_check_total{url, host, path, status_code, instance}`** - Total checks counter by status
 - **`url_status_code_total{url, host, path, status_code, instance}`** - Counter per status code

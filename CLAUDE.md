@@ -77,7 +77,7 @@ GITHUB_REPOSITORY_OWNER=jasoet GITHUB_REPOSITORY_NAME=url_exporter IMAGE_NAME=ur
 
 3. **Metrics Collector** (`internal/metrics/`)
    - Implements Prometheus collector interface
-   - Exposes metrics: url_up, url_response_time_seconds, url_http_status_code, etc.
+   - Exposes metrics: url_up, url_response_time_milliseconds, url_http_status_code, etc.
    - Manages metric registration and updates
 
 4. **HTTP Server** (`internal/server/`)

@@ -41,8 +41,8 @@ func NewCollector(cfg *config.Config, chk *checker.Checker) *Collector {
 			nil,
 		),
 		urlResponseTime: prometheus.NewDesc(
-			"url_response_time_seconds",
-			"Response time in seconds",
+			"url_response_time_milliseconds",
+			"Response time in milliseconds",
 			[]string{"url", "host", "path", "instance"},
 			nil,
 		),
@@ -99,12 +99,12 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			labels...,
 		)
 
-		// url_response_time_seconds metric (only if successful)
+		// url_response_time_milliseconds metric (only if successful)
 		if result.Error == nil {
 			ch <- prometheus.MustNewConstMetric(
 				c.urlResponseTime,
 				prometheus.GaugeValue,
-				result.ResponseTime.Seconds(),
+				float64(result.ResponseTime.Milliseconds()),
 				labels...,
 			)
 
