@@ -106,7 +106,7 @@ tasks:
     env:
       URL_CONFIG_FILE: '{{.BUILD_DIR}}/config.example.yaml'
       URL_LOGLEVEL: "debug"
-      URL_CHECKINTERVAL: "6s"
+      URL_CHECKINTERVAL: "20s"
     cmds:
       - 'echo $URL_CONFIG_FILE'
       - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
@@ -118,7 +118,7 @@ tasks:
     env:
       URL_TARGETS: "https://example.com,https://google.com"
       URL_LOGLEVEL: "debug"
-      URL_CHECKINTERVAL: "6s"
+      URL_CHECKINTERVAL: "20s"
     cmds:
       - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
 
