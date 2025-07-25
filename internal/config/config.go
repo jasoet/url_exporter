@@ -14,12 +14,12 @@ import (
 // Config holds the application configuration
 type Config struct {
 	Targets       []string      `yaml:"targets"`
-	CheckInterval time.Duration `yaml:"check_interval"`
+	CheckInterval time.Duration `yaml:"checkInterval"`
 	Timeout       time.Duration `yaml:"timeout"`
-	ListenPort    int           `yaml:"listen_port"`
-	InstanceID    string        `yaml:"instance_id"`
+	ListenPort    int           `yaml:"listenPort"`
+	InstanceID    string        `yaml:"instanceId"`
 	Retries       int           `yaml:"retries"`
-	LogLevel      string        `yaml:"log_level"`
+	LogLevel      string        `yaml:"logLevel"`
 }
 
 //go:embed config.default.yml
@@ -27,16 +27,12 @@ var defaultYAML string
 
 // Load loads configuration using jasoet/pkg/config patterns
 func Load() (*Config, error) {
-	// Try to load from file first
 	configContent, err := loadConfigFile()
 	if err != nil {
-		// Fallback to embedded default configuration
 		configContent = defaultYAML
 	}
 
-	// Load configuration with environment variable override
 	cfg, err := config.LoadStringWithConfig[Config](configContent, func(v *viper.Viper) {
-		// Handle comma-separated targets from environment
 		if targetsEnv := os.Getenv("URL_TARGETS"); targetsEnv != "" {
 			targets := strings.Split(targetsEnv, ",")
 			for i := range targets {
@@ -50,7 +46,6 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Set instance ID if not provided
 	if cfg.InstanceID == "" {
 		hostname, err := os.Hostname()
 		if err != nil {
@@ -59,7 +54,6 @@ func Load() (*Config, error) {
 		cfg.InstanceID = hostname
 	}
 
-	// Validate we have at least one target
 	if len(cfg.Targets) == 0 {
 		return nil, fmt.Errorf("no targets specified")
 	}
@@ -69,7 +63,6 @@ func Load() (*Config, error) {
 
 // loadConfigFile attempts to load configuration from standard locations
 func loadConfigFile() (string, error) {
-	// Check for config file path from environment
 	if configPath := os.Getenv("URL_CONFIG_FILE"); configPath != "" {
 		content, err := os.ReadFile(configPath)
 		if err != nil {
@@ -78,14 +71,12 @@ func loadConfigFile() (string, error) {
 		return string(content), nil
 	}
 
-	// Search in standard locations
 	configPaths := []string{
 		"./config.yaml",
 		"./configs/config.yaml",
 		"/etc/url-exporter/config.yaml",
 	}
 	
-	// Add home directory path
 	if homeDir, err := os.UserHomeDir(); err == nil {
 		configPaths = append(configPaths, homeDir+"/.url-exporter/config.yaml")
 	}
