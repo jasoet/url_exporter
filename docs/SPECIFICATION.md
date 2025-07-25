@@ -158,14 +158,14 @@ task clean      # Clean build artifacts
 ### Manual Commands (if Taskfile not available)
 ```bash
 go mod download
-go build -o url-exporter ./cmd
+go build -o url-exporter ./app
 go test ./...
 ```
 
 ## Project Structure
 ```
 url-exporter/
-├── cmd/
+├── app/
 │   └── main.go
 ├── internal/
 │   ├── config/

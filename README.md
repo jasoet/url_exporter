@@ -215,7 +215,7 @@ task build
 
 # Or manually
 go mod download
-go build -o bin/url-exporter ./cmd
+go build -o bin/url-exporter ./app
 ```
 
 ### Testing

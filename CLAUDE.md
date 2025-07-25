@@ -24,7 +24,7 @@ task clean           # Clean build artifacts
 ### Manual Commands (if Taskfile not available)
 ```bash
 # Building
-go mod download && go build -o bin/url-exporter ./cmd
+go mod download && go build -o bin/url-exporter ./app
 
 # Testing
 go test ./...
@@ -81,7 +81,7 @@ go fmt ./... && go vet ./... && golangci-lint run
 ## Project Structure
 ```
 url-exporter/
-├── cmd/                     # Application entry point (main.go)
+├── app/                     # Application entry point (main.go)
 ├── internal/                # Private application code
 │   ├── config/             # Configuration structures and loading
 │   ├── checker/            # URL checking logic

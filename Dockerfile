@@ -24,7 +24,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s" \
     -o url-exporter \
-    ./cmd
+    ./app
 
 # Final stage
 FROM ubuntu:22.04
@@ -53,7 +53,7 @@ RUN chown -R appuser:appuser /app
 USER appuser
 
 # Expose metrics port
-EXPOSE 8080
+EXPOSE 8412
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
