@@ -24,15 +24,15 @@ task clean           # Clean build artifacts
 ### Manual Commands (if Taskfile not available)
 ```bash
 # Building
-go mod download && go build -o bin/url-exporter ./app
+go mod download && go build -o dist/url-exporter ./app
 
 # Testing
 go test ./...
 go test -race ./...
 
 # Running
-./bin/url-exporter --config=configs/config.example.yaml
-URL_TARGETS="https://example.com,https://google.com" ./bin/url-exporter
+./dist/url-exporter --config=configs/config.example.yaml
+URL_TARGETS="https://example.com,https://google.com" ./dist/url-exporter
 
 # Code Quality
 go fmt ./... && go vet ./... && golangci-lint run

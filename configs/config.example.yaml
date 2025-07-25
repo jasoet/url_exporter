@@ -13,7 +13,7 @@ targets:
 
 check_interval: 30s        # How often to check each URL
 timeout: 10s               # Timeout for each request
-listen_port: 8080          # Port to expose metrics on
+listen_port: 8412          # Port to expose metrics on
 instance_id: ""            # Optional: custom instance identifier (defaults to hostname)
 retries: 3                 # Number of retries for failed requests
 log_level: "info"          # Log level: debug, info, warn, error

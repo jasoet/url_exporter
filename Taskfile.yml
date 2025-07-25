@@ -3,7 +3,7 @@ version: '3'
 vars:
   BINARY_NAME: url-exporter
   BINARY_PATH: ./app
-  BUILD_DIR: ./bin
+  BUILD_DIR: ./dist
   DOCKER_IMAGE: url-exporter
   VERSION: latest
 
@@ -27,41 +27,26 @@ tasks:
       - go mod download
       - go mod tidy
 
-  # Build the application
+  # Build the application (direct binary build)
   build:
-    desc: Build the application binary
+    desc: Build the application binary directly (single platform)
     deps: [ensure-build-dir]
     cmds:
       - go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} -v {{.BINARY_PATH}}
     generates:
       - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
 
-  # Build for Linux (useful for Docker)
-  build-linux:
-    desc: Build Linux binary for Docker
-    deps: [ensure-build-dir]
+  # Build using goreleaser (multi-platform)
+  build-all:
+    desc: Build for all platforms using goreleaser
     cmds:
-      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux -v {{.BINARY_PATH}}
-    generates:
-      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}-linux'
+      - goreleaser build --snapshot --clean
 
-  # Run tests
+  # Run tests with race detection and coverage
   test:
-    desc: Run all tests
+    desc: Run all tests with race detection and coverage report
     cmds:
-      - go test -v ./...
-
-  # Run tests with race detection
-  test-race:
-    desc: Run tests with race detection
-    cmds:
-      - go test -race -v ./...
-
-  # Run tests with coverage
-  test-coverage:
-    desc: Run tests with coverage report
-    cmds:
-      - go test -coverprofile=coverage.out ./...
+      - go test -race -coverprofile=coverage.out -v ./...
       - go tool cover -html=coverage.out -o coverage.html
     generates:
       - coverage.out
@@ -119,17 +104,17 @@ tasks:
     deps: [docker-build]
     cmds:
       - |
-        docker run -p 8080:8080 \
+        docker run -p 8412:8412 \
           -e URL_TARGETS="https://example.com,https://google.com" \
           -e URL_LOG_LEVEL="info" \
           {{.DOCKER_IMAGE}}:{{.VERSION}}
 
-  # Install binary to system
+  # Install binary to GOPATH/bin
   install:
-    desc: Install binary to /usr/local/bin
+    desc: Install binary to GOPATH/bin
     deps: [build]
     cmds:
-      - sudo cp {{.BUILD_DIR}}/{{.BINARY_NAME}} /usr/local/bin/
+      - cp {{.BUILD_DIR}}/{{.BINARY_NAME}} $(go env GOPATH)/bin/
 
   # Clean build artifacts
   clean:
@@ -147,19 +132,16 @@ tasks:
   # CI/CD pipeline simulation
   ci:
     desc: Simulate CI/CD pipeline
-    deps: [deps, fmt, vet, lint, test-race, build]
+    deps: [deps, fmt, vet, lint, test, build]
 
-  # Release build (multi-platform)
+  # Release build using goreleaser
   release:
-    desc: Build release binaries for multiple platforms
-    deps: [ensure-build-dir]
+    desc: Create release using goreleaser
     cmds:
-      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-amd64 {{.BINARY_PATH}}
-      - CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-w -s" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-amd64 {{.BINARY_PATH}}
-      - CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-w -s" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-arm64 {{.BINARY_PATH}}
-      - CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-w -s" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64.exe {{.BINARY_PATH}}
-    generates:
-      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-amd64'
-      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-amd64'  
-      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-arm64'
-      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64.exe'
+      - goreleaser release --clean
+
+  # Release snapshot (for testing)
+  release-snapshot:
+    desc: Create snapshot release using goreleaser
+    cmds:
+      - goreleaser release --snapshot --clean

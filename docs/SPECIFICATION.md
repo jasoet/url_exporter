@@ -42,10 +42,10 @@ For URL "https://api.service.com/health":
 targets:
   - "https://example.com"
   - "https://api.service.com/health"
-  - "http://internal-service:8080/status"
+  - "http://internal-service:8412/status"
 check_interval: 30s
 timeout: 10s
-listen_port: 8080
+listen_port: 8412
 instance_id: "vm-prod-us-east"  # Optional
 retries: 3
 log_level: "info"
@@ -56,23 +56,17 @@ log_level: "info"
 URL_TARGETS="https://example.com,https://api.service.com/health"
 URL_CHECK_INTERVAL="30s"
 URL_TIMEOUT="10s"
-URL_LISTEN_PORT="8080"
+URL_LISTEN_PORT="8412"
 URL_INSTANCE_ID="vm-prod-us-east"
 URL_RETRIES="3"
 URL_LOG_LEVEL="info"
 URL_CONFIG_FILE="/etc/url-exporter/config.yaml"
 ```
 
-### Command Line Flags
-```bash
-./url-exporter --config=config.yaml --port=8080 --instance-id=vm-01
-```
-
 ### Configuration Priority
-1. Command line flags (highest)
-2. Environment variables
-3. Configuration file
-4. Default values (lowest)
+1. Environment variables (highest)
+2. Configuration file  
+3. Default values (lowest)
 
 ### Configuration File Search Paths
 1. `./config.yaml`
@@ -133,7 +127,7 @@ URL_CONFIG_FILE="/etc/url-exporter/config.yaml"
 scrape_configs:
   - job_name: 'url-exporter'
     static_configs:
-      - targets: ['localhost:8080']
+      - targets: ['localhost:8412']
 ```
 
 ### Grafana Dashboard

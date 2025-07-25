@@ -57,7 +57,7 @@ EXPOSE 8412
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:8412/health || exit 1
 
 # Set entrypoint
 ENTRYPOINT ["/app/url-exporter"]

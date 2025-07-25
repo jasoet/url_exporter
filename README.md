@@ -33,7 +33,7 @@ cp configs/config.example.yaml config.yaml
 
 4. View metrics:
 ```bash
-curl http://localhost:8080/metrics
+curl http://localhost:8412/metrics
 ```
 
 ### Using Docker
@@ -43,7 +43,7 @@ curl http://localhost:8080/metrics
 docker build -t url-exporter:latest .
 
 # Run with environment variables
-docker run -p 8080:8080 \
+docker run -p 8412:8412 \
   -e URL_TARGETS="https://example.com,https://google.com" \
   url-exporter:latest
 ```
@@ -78,10 +78,10 @@ task ci              # Complete CI pipeline
 targets:
   - "https://example.com"
   - "https://api.service.com/health"
-  - "http://internal-service:8080/status"
+  - "http://internal-service:8412/status"
 check_interval: 30s
 timeout: 10s
-listen_port: 8080
+listen_port: 8412
 instance_id: "vm-prod-us-east"  # Optional
 retries: 3
 log_level: "info"
@@ -96,31 +96,17 @@ export URL_TARGETS="https://example.com,https://api.service.com/health"
 # Configuration options
 export URL_CHECK_INTERVAL="30s"
 export URL_TIMEOUT="10s"
-export URL_LISTEN_PORT="8080"
+export URL_LISTEN_PORT="8412"
 export URL_INSTANCE_ID="vm-prod-01"
 export URL_RETRIES="3"
 export URL_LOG_LEVEL="info"
 ```
 
-### Command Line Flags
-
-```bash
-./url-exporter \
-  --targets="https://example.com,https://api.service.com/health" \
-  --port=8080 \
-  --instance-id="vm-01" \
-  --check-interval="30s" \
-  --timeout="10s" \
-  --retries=3 \
-  --log-level="info"
-```
-
 ### Configuration Priority
 
-1. Command line flags (highest priority)
-2. Environment variables
-3. Configuration file
-4. Default values (lowest priority)
+1. Environment variables (highest priority)
+2. Configuration file
+3. Default values (lowest priority)
 
 ## Metrics
 
@@ -159,7 +145,7 @@ docker build -t url-exporter:latest .
 # Run container
 docker run -d \
   --name url-exporter \
-  -p 8080:8080 \
+  -p 8412:8412 \
   -v $(pwd)/config.yaml:/config.yaml \
   url-exporter:latest --config=/config.yaml
 ```
@@ -173,14 +159,14 @@ services:
   url-exporter:
     build: .
     ports:
-      - "8080:8080"
+      - "8412:8412"
     environment:
       - URL_TARGETS=https://google.com,https://github.com
       - URL_LOG_LEVEL=info
       - URL_CHECK_INTERVAL=30s
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8412/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -194,7 +180,7 @@ Add the following to your `prometheus.yml`:
 scrape_configs:
   - job_name: 'url-exporter'
     static_configs:
-      - targets: ['localhost:8080']
+      - targets: ['localhost:8412']
     scrape_interval: 30s
     metrics_path: /metrics
 ```
@@ -215,7 +201,7 @@ task build
 
 # Or manually
 go mod download
-go build -o bin/url-exporter ./app
+go build -o dist/url-exporter ./app
 ```
 
 ### Testing
@@ -289,7 +275,7 @@ The application follows the jasoet/pkg patterns for production-ready Go applicat
 3. **High memory usage**
    ```bash
    # Reduce check interval or number of targets
-   # Monitor with: curl http://localhost:8080/metrics | grep go_
+   # Monitor with: curl http://localhost:8412/metrics | grep go_
    ```
 
 ### Logs

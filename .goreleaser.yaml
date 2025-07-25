@@ -1,0 +1,79 @@
+project_name: url-exporter
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod vendor
+
+builds:
+  - id: url-exporter
+    main: ./app
+    binary: url-exporter
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+archives:
+  - id: default
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    format: zip
+    files:
+      - src: internal/config/config.default.yml
+        dst: config.default.yml
+      - src: configs/config.example.yaml
+        dst: config.example.yaml
+      - README.md
+      - LICENSE*
+
+dockers:
+  - image_templates:
+      - "ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/{{ .Env.IMAGE_NAME }}:{{ .Version }}"
+      - "ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/{{ .Env.IMAGE_NAME }}:latest"
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--build-arg=VERSION={{.Version}}"
+
+release:
+  github:
+    owner: "{{ .Env.GITHUB_REPOSITORY_OWNER }}"
+    name: "{{ .Env.GITHUB_REPOSITORY_NAME }}"
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## {{ .ProjectName }} {{ .Tag }} ({{ .Date }})
+
+    This is a release of {{ .ProjectName }} version {{ .Tag }}. See the changelog below for details.
+  footer: |
+    ## Installation
+
+    Download the appropriate binary for your platform from the assets below.
+
+    For more information, see the [README.md](https://github.com/{{ .Env.GITHUB_REPOSITORY }}/blob/main/README.md).
+
+dist: dist
