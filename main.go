@@ -8,12 +8,11 @@ import (
 	"os"
 )
 
-// Version information (injected at build time by GoReleaser)
 var (
 	version = "dev"
 	commit  = "unknown"
 	date    = "unknown"
-	builtBy = "unknown"
+	builtBy = "@jasoet"
 )
 
 func main() {
@@ -50,7 +49,7 @@ func main() {
 		Date:    date,
 		BuiltBy: builtBy,
 	}
-	
+
 	srv, err := server.New(cfg, versionInfo)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create server")
