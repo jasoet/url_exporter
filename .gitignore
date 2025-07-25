@@ -20,7 +20,8 @@ go.work
 # Build artifacts
 /bin/
 /build/
-/dist/
+dist/
+vendor/
 
 # Coverage reports
 coverage.out

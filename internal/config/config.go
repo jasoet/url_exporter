@@ -76,7 +76,7 @@ func loadConfigFile() (string, error) {
 		"./configs/config.yaml",
 		"/etc/url-exporter/config.yaml",
 	}
-	
+
 	if homeDir, err := os.UserHomeDir(); err == nil {
 		configPaths = append(configPaths, homeDir+"/.url-exporter/config.yaml")
 	}

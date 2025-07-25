@@ -73,36 +73,35 @@ func (s *URLExporterServer) startBackgroundWorkers(ctx context.Context) {
 // Start starts the HTTP server using jasoet/pkg/server patterns
 func (s *URLExporterServer) Start() error {
 	log.Info().Int("port", s.config.ListenPort).Msg("Starting URL Exporter server")
-	
+
 	// Use jasoet/pkg/server.Start function
 	server.Start(
 		s.config.ListenPort,
 		func(e *echo.Echo) {
 			// Setup routes
 			s.setupRoutes(e)
-			
+
 			// Start background workers
 			ctx := context.Background()
 			s.startBackgroundWorkers(ctx)
-			
+
 			log.Info().Msg("URL Exporter server started successfully")
 		},
 		func(e *echo.Echo) {
 			// Cleanup on shutdown
 			log.Info().Msg("Shutting down URL Exporter server")
-			
+
 			// Shutdown checker
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			
+
 			if err := s.checker.Shutdown(ctx); err != nil {
 				log.Error().Err(err).Msg("Failed to shutdown checker")
 			}
-			
+
 			log.Info().Msg("URL Exporter server shutdown complete")
 		},
 	)
-	
+
 	return nil
 }
-

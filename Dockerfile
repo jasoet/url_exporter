@@ -1,53 +1,22 @@
-# Build stage
-FROM golang:1.24-bookworm AS builder
+FROM ubuntu:24.04
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    ca-certificates \
-    tzdata \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set working directory
-WORKDIR /build
-
-# Copy go mod files
-COPY go.mod go.sum ./
-
-# Download dependencies
-RUN go mod download
-
-# Copy source code
-COPY . .
-
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags="-w -s" \
-    -o url-exporter \
-    ./app
-
-# Final stage
-FROM ubuntu:22.04
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    tzdata \
-    curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+# Update and install runtime dependencies, then clean up to reduce image size
+RUN apt-get update && \
+    apt-get install -y ca-certificates tzdata curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash --user-group --uid 1000 appuser
 
-# Set working directory
 WORKDIR /app
 
-# Copy the binary
-COPY --from=builder /build/url-exporter /app/url-exporter
+# Copy the pre-built binary (goreleaser will handle this)
+COPY url-exporter .
 
-# Change ownership to non-root user
-RUN chown -R appuser:appuser /app
+# Make binary executable and change ownership to non-root user
+RUN chmod +x /app/url-exporter && \
+    chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser

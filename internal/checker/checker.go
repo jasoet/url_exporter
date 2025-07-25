@@ -32,7 +32,7 @@ type Checker struct {
 	cancel     context.CancelFunc
 }
 
-// New creates a new URL checker  
+// New creates a new URL checker
 func New(cfg *config.Config) *Checker {
 	// Create HTTP client with timeout and skip SSL verification for internal services
 	httpClient := &http.Client{
@@ -94,11 +94,11 @@ func (c *Checker) Results() <-chan Result {
 func (c *Checker) checkAllURLs(ctx context.Context) {
 	// Create functions map for concurrent execution
 	funcs := make(map[string]concurrent.Func[Result])
-	
+
 	for i, targetURL := range c.config.Targets {
 		funcKey := fmt.Sprintf("url_%d", i)
 		targetURL := targetURL // Capture for closure
-		
+
 		funcs[funcKey] = func(ctx context.Context) (Result, error) {
 			result := c.checkURL(ctx, targetURL)
 			// Convert result to function return format
@@ -109,14 +109,14 @@ func (c *Checker) checkAllURLs(ctx context.Context) {
 			return result, nil
 		}
 	}
-	
+
 	// Execute all URL checks concurrently
 	results, err := concurrent.ExecuteConcurrently(ctx, funcs)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to execute concurrent URL checks")
 		return
 	}
-	
+
 	// Send results to channel
 	for _, result := range results {
 		select {
@@ -130,7 +130,7 @@ func (c *Checker) checkAllURLs(ctx context.Context) {
 // checkURL checks a single URL with retry logic
 func (c *Checker) checkURL(ctx context.Context, targetURL string) Result {
 	host, path := parseURL(targetURL)
-	
+
 	result := Result{
 		URL:       targetURL,
 		Host:      host,
@@ -153,13 +153,13 @@ func (c *Checker) checkURL(ctx context.Context, targetURL string) Result {
 			result.StatusCode = statusCode
 			result.ResponseTime = elapsed
 			result.Error = nil
-			
+
 			log.Debug().
 				Str("url", targetURL).
 				Int("status_code", statusCode).
 				Dur("response_time", elapsed).
 				Msg("URL check successful")
-			
+
 			return result
 		}
 
@@ -175,12 +175,12 @@ func (c *Checker) checkURL(ctx context.Context, targetURL string) Result {
 	// All retries failed
 	result.Error = lastErr
 	result.StatusCode = 0
-	
+
 	log.Error().
 		Str("url", targetURL).
 		Err(lastErr).
 		Msg("URL check failed after all retries")
-	
+
 	return result
 }
 

@@ -20,11 +20,11 @@ type Collector struct {
 	lastResults map[string]*checker.Result
 
 	// Metrics
-	urlUp               *prometheus.Desc
-	urlResponseTime     *prometheus.Desc
-	urlHTTPStatusCode   *prometheus.Desc
-	urlCheckTotal       *prometheus.Desc
-	urlStatusCodeTotal  *prometheus.Desc
+	urlUp              *prometheus.Desc
+	urlResponseTime    *prometheus.Desc
+	urlHTTPStatusCode  *prometheus.Desc
+	urlCheckTotal      *prometheus.Desc
+	urlStatusCodeTotal *prometheus.Desc
 }
 
 // NewCollector creates a new metrics collector

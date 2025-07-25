@@ -84,13 +84,13 @@ func TestLoad_WithEnvironmentVariables(t *testing.T) {
 
 	// Use correct environment variable names (no underscores in field names)
 	envVars := map[string]string{
-		"URL_TARGETS":        "https://example.com,https://test.com",
-		"URL_CHECKINTERVAL":  "60s",
-		"URL_TIMEOUT":        "15s",
-		"URL_LISTENPORT":     "9090",
-		"URL_INSTANCEID":     "test-instance",
-		"URL_RETRIES":        "5",
-		"URL_LOGLEVEL":       "debug",
+		"URL_TARGETS":       "https://example.com,https://test.com",
+		"URL_CHECKINTERVAL": "60s",
+		"URL_TIMEOUT":       "15s",
+		"URL_LISTENPORT":    "9090",
+		"URL_INSTANCEID":    "test-instance",
+		"URL_RETRIES":       "5",
+		"URL_LOGLEVEL":      "debug",
 	}
 
 	for key, value := range envVars {
