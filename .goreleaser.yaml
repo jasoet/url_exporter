@@ -37,7 +37,7 @@ archives:
     format: zip
     files:
       - src: internal/config/config.default.yml
-        dst: config.default.yml
+        dst: config.yml
       - src: configs/config.example.yaml
         dst: config.example.yaml
       - README.md
