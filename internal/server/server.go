@@ -22,13 +22,10 @@ type URLExporterServer struct {
 	collector *metrics.Collector
 }
 
-// New creates a new URL exporter server
 func New(cfg *config.Config) (*URLExporterServer, error) {
-	// Create checker and collector
 	chk := checker.New(cfg)
 	col := metrics.NewCollector(cfg, chk)
 
-	// Register collector with Prometheus
 	if err := col.Register(); err != nil {
 		return nil, fmt.Errorf("failed to register metrics collector: %w", err)
 	}
@@ -42,14 +39,11 @@ func New(cfg *config.Config) (*URLExporterServer, error) {
 	return s, nil
 }
 
-// setupRoutes configures the HTTP routes using jasoet/pkg/server patterns
 func (s *URLExporterServer) setupRoutes(e *echo.Echo) {
-	// Routes
 	e.GET("/", s.handleRoot)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 }
 
-// handleRoot handles the root endpoint
 func (s *URLExporterServer) handleRoot(c echo.Context) error {
 	info := map[string]interface{}{
 		"service":   "url-exporter",
@@ -62,36 +56,27 @@ func (s *URLExporterServer) handleRoot(c echo.Context) error {
 	return c.JSON(http.StatusOK, info)
 }
 
-// startBackgroundWorkers starts the checker and collector
 func (s *URLExporterServer) startBackgroundWorkers(ctx context.Context) {
-	// Start checker
 	go s.checker.Start(ctx)
-	// Start collector to process results
 	go s.collector.Start(ctx)
 }
 
-// Start starts the HTTP server using jasoet/pkg/server patterns
 func (s *URLExporterServer) Start() error {
 	log.Info().Int("port", s.config.ListenPort).Msg("Starting URL Exporter server")
 
-	// Use jasoet/pkg/server.Start function
 	server.Start(
 		s.config.ListenPort,
 		func(e *echo.Echo) {
-			// Setup routes
 			s.setupRoutes(e)
 
-			// Start background workers
 			ctx := context.Background()
 			s.startBackgroundWorkers(ctx)
 
 			log.Info().Msg("URL Exporter server started successfully")
 		},
 		func(e *echo.Echo) {
-			// Cleanup on shutdown
 			log.Info().Msg("Shutting down URL Exporter server")
 
-			// Shutdown checker
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 

@@ -27,7 +27,6 @@ type Collector struct {
 	urlStatusCodeTotal *prometheus.Desc
 }
 
-// NewCollector creates a new metrics collector
 func NewCollector(cfg *config.Config, chk *checker.Checker) *Collector {
 	return &Collector{
 		config:      cfg,
@@ -67,7 +66,6 @@ func NewCollector(cfg *config.Config, chk *checker.Checker) *Collector {
 	}
 }
 
-// Describe implements prometheus.Collector
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.urlUp
 	ch <- c.urlResponseTime
@@ -76,22 +74,18 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.urlStatusCodeTotal
 }
 
-// Collect implements prometheus.Collector
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	// Create metrics for each URL result
 	for _, result := range c.lastResults {
 		labels := []string{result.URL, result.Host, result.Path, c.config.InstanceID}
 
-		// Determine if URL is up (2xx status code)
 		up := float64(0)
 		if result.Error == nil && result.StatusCode >= 200 && result.StatusCode < 300 {
 			up = 1
 		}
 
-		// url_up metric
 		ch <- prometheus.MustNewConstMetric(
 			c.urlUp,
 			prometheus.GaugeValue,
@@ -99,7 +93,6 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			labels...,
 		)
 
-		// url_response_time_milliseconds metric (only if successful)
 		if result.Error == nil {
 			ch <- prometheus.MustNewConstMetric(
 				c.urlResponseTime,
@@ -108,7 +101,6 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 				labels...,
 			)
 
-			// url_http_status_code metric
 			ch <- prometheus.MustNewConstMetric(
 				c.urlHTTPStatusCode,
 				prometheus.GaugeValue,
@@ -119,15 +111,12 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-// Start starts processing checker results
 func (c *Collector) Start(ctx context.Context) {
-	// Initialize counters for all URLs
 	counters := make(map[string]map[string]int)
 	for _, url := range c.config.Targets {
 		counters[url] = make(map[string]int)
 	}
 
-	// Process results from checker
 	for {
 		select {
 		case <-ctx.Done():
@@ -137,12 +126,10 @@ func (c *Collector) Start(ctx context.Context) {
 				return
 			}
 
-			// Update last result
 			c.mutex.Lock()
 			c.lastResults[result.URL] = &result
 			c.mutex.Unlock()
 
-			// Update counters
 			statusCode := "error"
 			if result.Error == nil {
 				statusCode = strconv.Itoa(result.StatusCode)
@@ -161,7 +148,6 @@ func (c *Collector) Start(ctx context.Context) {
 	}
 }
 
-// Register registers the collector with Prometheus
 func (c *Collector) Register() error {
 	if err := prometheus.Register(c); err != nil {
 		return fmt.Errorf("failed to register collector: %w", err)

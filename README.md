@@ -347,5 +347,4 @@ For issues and questions:
 ## Related Projects
 
 - [Prometheus](https://prometheus.io/) - Monitoring and alerting toolkit
-- [Blackbox Exporter](https://github.com/prometheus/blackbox_exporter) - Generic probe exporter
 - [jasoet/pkg](https://github.com/jasoet/pkg) - Reusable Go components used in this project

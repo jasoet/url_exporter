@@ -3,6 +3,7 @@ package config
 import (
 	_ "embed"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -25,7 +26,6 @@ type Config struct {
 //go:embed config.default.yml
 var defaultYAML string
 
-// Load loads configuration using jasoet/pkg/config patterns
 func Load() (*Config, error) {
 	configContent, err := loadConfigFile()
 	if err != nil {
@@ -49,9 +49,14 @@ func Load() (*Config, error) {
 	if cfg.InstanceID == "" {
 		hostname, err := os.Hostname()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get hostname: %w", err)
+			if ip, ipErr := getMachineIP(); ipErr == nil {
+				cfg.InstanceID = ip
+			} else {
+				return nil, fmt.Errorf("failed to get hostname and IP address: hostname_err=%w, ip_err=%v", err, ipErr)
+			}
+		} else {
+			cfg.InstanceID = hostname
 		}
-		cfg.InstanceID = hostname
 	}
 
 	if len(cfg.Targets) == 0 {
@@ -61,7 +66,6 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// loadConfigFile attempts to load configuration from standard locations
 func loadConfigFile() (string, error) {
 	if configPath := os.Getenv("URL_CONFIG_FILE"); configPath != "" {
 		content, err := os.ReadFile(configPath)
@@ -86,4 +90,45 @@ func loadConfigFile() (string, error) {
 	}
 
 	return "", fmt.Errorf("no config file found")
+}
+
+func getMachineIP() (string, error) {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return getFirstNonLoopbackIP()
+	}
+	defer func() {
+		_ = conn.Close()
+	}()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP.String(), nil
+}
+
+func getFirstNonLoopbackIP() (string, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return "", fmt.Errorf("failed to get network interfaces: %w", err)
+	}
+
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		for _, addr := range addrs {
+			if ipNet, ok := addr.(*net.IPNet); ok && !ipNet.IP.IsLoopback() {
+				if ipNet.IP.To4() != nil {
+					return ipNet.IP.String(), nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no non-loopback IP address found")
 }

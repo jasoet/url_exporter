@@ -32,21 +32,18 @@ type Checker struct {
 	cancel     context.CancelFunc
 }
 
-// New creates a new URL checker
 func New(cfg *config.Config) *Checker {
-	// Create HTTP client with timeout and skip SSL verification for internal services
 	httpClient := &http.Client{
 		Timeout: cfg.Timeout,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: false, // Set to true if needed for internal services
+				InsecureSkipVerify: false,
 			},
 			MaxIdleConns:        100,
 			MaxIdleConnsPerHost: 10,
 			IdleConnTimeout:     90 * time.Second,
 		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// Allow up to 10 redirects
 			if len(via) >= 10 {
 				return fmt.Errorf("too many redirects")
 			}
@@ -57,23 +54,19 @@ func New(cfg *config.Config) *Checker {
 	return &Checker{
 		config:     cfg,
 		httpClient: httpClient,
-		results:    make(chan Result, len(cfg.Targets)*2), // Buffer for results
+		results:    make(chan Result, len(cfg.Targets)*2),
 	}
 }
 
-// Start begins checking URLs periodically
 func (c *Checker) Start(ctx context.Context) {
-	// Create context with cancel for this checker
 	ctx, cancel := context.WithCancel(ctx)
 	c.cancel = cancel
 
 	ticker := time.NewTicker(c.config.CheckInterval)
 	defer ticker.Stop()
 
-	// Initial check
 	c.checkAllURLs(ctx)
 
-	// Periodic checks
 	for {
 		select {
 		case <-ctx.Done():
@@ -85,39 +78,32 @@ func (c *Checker) Start(ctx context.Context) {
 	}
 }
 
-// Results returns the results channel
 func (c *Checker) Results() <-chan Result {
 	return c.results
 }
 
-// checkAllURLs checks all configured URLs concurrently using jasoet/pkg/concurrent
 func (c *Checker) checkAllURLs(ctx context.Context) {
-	// Create functions map for concurrent execution
 	funcs := make(map[string]concurrent.Func[Result])
 
 	for i, targetURL := range c.config.Targets {
 		funcKey := fmt.Sprintf("url_%d", i)
-		targetURL := targetURL // Capture for closure
+		targetURL := targetURL
 
 		funcs[funcKey] = func(ctx context.Context) (Result, error) {
 			result := c.checkURL(ctx, targetURL)
-			// Convert result to function return format
 			if result.Error != nil {
-				// Still return the result with error for processing
 				return result, nil
 			}
 			return result, nil
 		}
 	}
 
-	// Execute all URL checks concurrently
 	results, err := concurrent.ExecuteConcurrently(ctx, funcs)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to execute concurrent URL checks")
 		return
 	}
 
-	// Send results to channel
 	for _, result := range results {
 		select {
 		case c.results <- result:
@@ -127,7 +113,6 @@ func (c *Checker) checkAllURLs(ctx context.Context) {
 	}
 }
 
-// checkURL checks a single URL with retry logic
 func (c *Checker) checkURL(ctx context.Context, targetURL string) Result {
 	host, path := parseURL(targetURL)
 
@@ -141,7 +126,6 @@ func (c *Checker) checkURL(ctx context.Context, targetURL string) Result {
 	var lastErr error
 	for attempt := 0; attempt <= c.config.Retries; attempt++ {
 		if attempt > 0 {
-			// Wait before retry (exponential backoff)
 			time.Sleep(time.Duration(attempt) * time.Second)
 		}
 
@@ -172,7 +156,6 @@ func (c *Checker) checkURL(ctx context.Context, targetURL string) Result {
 			Msg("URL check failed")
 	}
 
-	// All retries failed
 	result.Error = lastErr
 	result.StatusCode = 0
 
@@ -184,14 +167,12 @@ func (c *Checker) checkURL(ctx context.Context, targetURL string) Result {
 	return result
 }
 
-// performCheck performs the actual HTTP request
 func (c *Checker) performCheck(ctx context.Context, targetURL string) (int, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, targetURL, nil)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set user agent
 	req.Header.Set("User-Agent", "url-exporter/1.0")
 
 	resp, err := c.httpClient.Do(req)
@@ -203,23 +184,19 @@ func (c *Checker) performCheck(ctx context.Context, targetURL string) (int, erro
 	return resp.StatusCode, nil
 }
 
-// parseURL extracts host and path from a URL
 func parseURL(targetURL string) (host, path string) {
 	u, err := url.Parse(targetURL)
 	if err != nil {
 		return targetURL, "/"
 	}
 
-	// Build host with scheme
 	host = u.Scheme + "://" + u.Host
 
-	// Get path, default to "/" if empty
 	path = u.Path
 	if path == "" {
 		path = "/"
 	}
 
-	// Include query string if present
 	if u.RawQuery != "" {
 		path = path + "?" + u.RawQuery
 	}
@@ -227,8 +204,7 @@ func parseURL(targetURL string) (host, path string) {
 	return host, path
 }
 
-// Shutdown gracefully shuts down the checker
-func (c *Checker) Shutdown(ctx context.Context) error {
+func (c *Checker) Shutdown(_ context.Context) error {
 	if c.cancel != nil {
 		c.cancel()
 	}
