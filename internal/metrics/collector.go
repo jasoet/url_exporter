@@ -21,6 +21,7 @@ type Collector struct {
 
 	// Metrics
 	urlUp              *prometheus.Desc
+	urlError           *prometheus.Desc
 	urlResponseTime    *prometheus.Desc
 	urlHTTPStatusCode  *prometheus.Desc
 	urlCheckTotal      *prometheus.Desc
@@ -57,6 +58,12 @@ func NewCollector(cfg *config.Config, chk *checker.Checker) *Collector {
 			[]string{"url", "host", "path", "status_code", "instance"},
 			nil,
 		),
+		urlError: prometheus.NewDesc(
+			"url_error",
+			"URL error (1 if URL returns network/connection error, 0 otherwise)",
+			[]string{"url", "host", "path", "instance"},
+			nil,
+		),
 		urlStatusCodeTotal: prometheus.NewDesc(
 			"url_status_code_total",
 			"Counter for each specific HTTP status code encountered",
@@ -68,6 +75,7 @@ func NewCollector(cfg *config.Config, chk *checker.Checker) *Collector {
 
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.urlUp
+	ch <- c.urlError
 	ch <- c.urlResponseTime
 	ch <- c.urlHTTPStatusCode
 	ch <- c.urlCheckTotal
@@ -90,6 +98,18 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			c.urlUp,
 			prometheus.GaugeValue,
 			up,
+			labels...,
+		)
+
+		errorValue := float64(0)
+		if result.Error != nil {
+			errorValue = 1
+		}
+
+		ch <- prometheus.MustNewConstMetric(
+			c.urlError,
+			prometheus.GaugeValue,
+			errorValue,
 			labels...,
 		)
 
