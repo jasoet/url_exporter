@@ -8,34 +8,55 @@ A Go-based Prometheus exporter that monitors URL availability and exposes metric
 
 ## Development Commands
 
-### Using Taskfile.dev (Preferred)
+### Using Taskfile.dev (Required)
 ```bash
-# Install Taskfile.dev first: https://taskfile.dev/
-task build           # Build the application
-task test            # Run all tests
-task test-race       # Run tests with race detection
+# Initial project setup (installs tools and dependencies)
+task setup           # Install goreleaser, golangci-lint, and download dependencies
+
+# Development tasks
+task build           # Build the application to dist/
+task test            # Run all tests with coverage (outputs to dist/)
 task lint            # Run code quality checks
 task run             # Run with example config
 task docker-build    # Build Docker image
 task docker-run      # Run in Docker container
 task clean           # Clean build artifacts
+
+# Release tasks  
+task release-snapshot    # Create snapshot release with all platforms + Docker
+task release            # Create release (CI/CD only, requires GitHub env vars)
+
+# Composite tasks
+task dev             # Full development cycle: install-tools + deps + quality + test + build
+task ci              # CI/CD pipeline simulation
 ```
 
 ### Manual Commands (if Taskfile not available)
 ```bash
+# Tool Installation
+go install github.com/goreleaser/goreleaser/v2@latest
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
 # Building
 go mod download && go build -o dist/url-exporter ./app
 
-# Testing
-go test ./...
-go test -race ./...
+# Testing (with coverage in dist/)
+go test -race -coverprofile=dist/coverage.out -v ./...
+go tool cover -html=dist/coverage.out -o dist/coverage.html
 
 # Running
-./dist/url-exporter --config=configs/config.example.yaml
+# Option 1: With environment variables
 URL_TARGETS="https://example.com,https://google.com" ./dist/url-exporter
 
+# Option 2: With config file (copy to standard location first)
+cp configs/config.example.yaml ./config.yaml
+./dist/url-exporter
+
 # Code Quality
-go fmt ./... && go vet ./... && golangci-lint run
+gofmt -s -w . && go vet ./... && golangci-lint run
+
+# Release (snapshot)
+GITHUB_REPOSITORY_OWNER=jasoet GITHUB_REPOSITORY_NAME=url_exporter IMAGE_NAME=url-exporter GITHUB_REPOSITORY=jasoet/url_exporter goreleaser release --snapshot --clean
 ```
 
 ## Architecture Overview

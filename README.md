@@ -17,18 +17,22 @@ A Go-based Prometheus exporter that monitors URL availability and exposes metric
 
 1. Download the latest release or build from source:
 ```bash
-go build -o url-exporter ./cmd/url-exporter
+# Using Task (recommended)
+task build
+
+# Or manually
+go build -o dist/url-exporter ./app
 ```
 
-2. Create a configuration file:
+2. Run the exporter (uses default config locations or environment variables):
 ```bash
-cp configs/config.example.yaml config.yaml
-# Edit config.yaml with your URLs
-```
+# Option 1: Use environment variables
+URL_TARGETS="https://example.com,https://google.com" ./dist/url-exporter
 
-3. Run the exporter:
-```bash
-./url-exporter --config=config.yaml
+# Option 2: Create config file in standard location
+cp configs/config.example.yaml ./config.yaml
+# Edit config.yaml with your URLs, then run:
+./dist/url-exporter
 ```
 
 4. View metrics:
@@ -51,20 +55,24 @@ docker run -p 8412:8412 \
 ### Using Taskfile.dev (Recommended)
 
 ```bash
-# Install Taskfile.dev first: https://taskfile.dev/
-# Then run tasks:
+# Initial project setup (installs tools and dependencies)
+task setup
 
+# Available tasks:
 task build           # Build the application
-task test            # Run all tests
-task test-race       # Run tests with race detection
+task test            # Run all tests with coverage
 task lint            # Run code quality checks
 task run             # Run with example config
 task docker-build    # Build Docker image
 task docker-run      # Run in Docker container
 task clean           # Clean build artifacts
 
+# Release tasks
+task release-snapshot    # Create snapshot release (for testing)
+task release            # Create release (CI/CD only)
+
 # Full development cycle
-task dev             # deps + quality + test + build
+task dev             # install-tools + deps + quality + test + build
 
 # CI/CD simulation
 task ci              # Complete CI pipeline
@@ -79,12 +87,12 @@ targets:
   - "https://example.com"
   - "https://api.service.com/health"
   - "http://internal-service:8412/status"
-check_interval: 30s
+checkInterval: 30s      # Changed from check_interval
 timeout: 10s
-listen_port: 8412
-instance_id: "vm-prod-us-east"  # Optional
+listenPort: 8412        # Changed from listen_port
+instanceId: "vm-prod-us-east"  # Changed from instance_id (Optional)
 retries: 3
-log_level: "info"
+logLevel: "info"        # Changed from log_level
 ```
 
 ### Environment Variables
@@ -93,19 +101,36 @@ log_level: "info"
 # URLs to monitor (comma-separated)
 export URL_TARGETS="https://example.com,https://api.service.com/health"
 
-# Configuration options
-export URL_CHECK_INTERVAL="30s"
+# Configuration options (note: camelCase in YAML, but env vars use original names)
+export URL_CHECKINTERVAL="30s"    # Maps to checkInterval in YAML
 export URL_TIMEOUT="10s"
-export URL_LISTEN_PORT="8412"
-export URL_INSTANCE_ID="vm-prod-01"
+export URL_LISTENPORT="8412"      # Maps to listenPort in YAML
+export URL_INSTANCEID="vm-prod-01"  # Maps to instanceId in YAML
 export URL_RETRIES="3"
-export URL_LOG_LEVEL="info"
+export URL_LOGLEVEL="info"        # Maps to logLevel in YAML
 ```
+
+### Configuration File Locations
+
+The application searches for configuration files in this order:
+
+**Priority 1:** Environment variable (if set)
+```bash
+export URL_CONFIG_FILE="/path/to/your/config.yaml"
+```
+
+**Priority 2:** Standard locations (searched in order):
+1. `./config.yaml` (current directory)
+2. `./configs/config.yaml` 
+3. `/etc/url-exporter/config.yaml`
+4. `~/.url-exporter/config.yaml` (user home directory)
+
+If no config file is found, the application falls back to embedded defaults.
 
 ### Configuration Priority
 
 1. Environment variables (highest priority)
-2. Configuration file
+2. Configuration file (from locations above)
 3. Default values (lowest priority)
 
 ## Metrics
@@ -142,12 +167,12 @@ For URL `https://api.service.com/health`:
 # Build image
 docker build -t url-exporter:latest .
 
-# Run container
+# Run container with config file mounted to standard location
 docker run -d \
   --name url-exporter \
   -p 8412:8412 \
-  -v $(pwd)/config.yaml:/config.yaml \
-  url-exporter:latest --config=/config.yaml
+  -v $(pwd)/configs/config.yaml:/app/config.yaml \
+  url-exporter:latest
 ```
 
 ### Docker Compose (Optional)
@@ -190,44 +215,58 @@ scrape_configs:
 ### Prerequisites
 
 - Go 1.21 or later
-- [Taskfile.dev](https://taskfile.dev/) (recommended for build automation)
+- [Taskfile.dev](https://taskfile.dev/) (required for build automation)
 - Docker (for containerization)
+
+### Initial Setup
+
+```bash
+# Install development tools and dependencies
+task setup
+```
+
+This will install:
+- goreleaser (for cross-platform builds)
+- golangci-lint (for code quality)
+- Download Go module dependencies
 
 ### Building
 
 ```bash
-# With Taskfile.dev (recommended)
+# Single platform build (recommended for development)
 task build
 
-# Or manually
-go mod download
-go build -o dist/url-exporter ./app
+# Multi-platform build using goreleaser
+task build-all
+
+# Create release snapshot (includes Docker image)
+task release-snapshot
 ```
 
 ### Testing
 
 ```bash
-# With Taskfile.dev (recommended)
+# Run tests with coverage (generates coverage files in dist/)
 task test
-task test-race
-task test-coverage
 
 # Or manually
-go test ./...
-go test -race ./...
+go test -race -coverprofile=dist/coverage.out -v ./...
+go tool cover -html=dist/coverage.out -o dist/coverage.html
 ```
 
 ### Code Quality
 
 ```bash
-# With Taskfile.dev (recommended)
-task fmt
-task vet  
-task lint
-task quality  # runs all quality checks
+# Run all quality checks
+task quality
+
+# Individual checks
+task fmt     # Format code
+task vet     # Run go vet  
+task lint    # Run golangci-lint
 
 # Or manually
-go fmt ./...
+gofmt -s -w .
 go vet ./...
 golangci-lint run
 ```
@@ -283,8 +322,8 @@ The application follows the jasoet/pkg patterns for production-ready Go applicat
 Set log level to debug for detailed information:
 
 ```bash
-export URL_LOG_LEVEL=debug
-./url-exporter --config=config.yaml
+export URL_LOGLEVEL=debug
+./dist/url-exporter
 ```
 
 ## Contributing
@@ -293,7 +332,7 @@ export URL_LOG_LEVEL=debug
 2. Create a feature branch
 3. Make your changes
 4. Add tests
-5. Run `make test lint`
+5. Run `task ci` to verify everything passes
 6. Submit a pull request
 
 ## License
