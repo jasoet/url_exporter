@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: url-exporter-config
+data:
+  config.yaml: |
+    targets:
+      - "https://example.com"
+      - "https://api.service.com/health"
+      - "https://cdn.example.com/status"
+    check_interval: 30s
+    timeout: 10s
+    listen_port: 8080
+    retries: 3
+    log_level: "info"

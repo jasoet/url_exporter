@@ -1,0 +1,165 @@
+version: '3'
+
+vars:
+  BINARY_NAME: url-exporter
+  BINARY_PATH: ./cmd/url-exporter
+  BUILD_DIR: ./bin
+  DOCKER_IMAGE: url-exporter
+  VERSION: latest
+
+tasks:
+  # Default task
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  # Create build directory
+  ensure-build-dir:
+    internal: true
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+
+  # Download dependencies
+  deps:
+    desc: Download Go module dependencies
+    cmds:
+      - go mod download
+      - go mod tidy
+
+  # Build the application
+  build:
+    desc: Build the application binary
+    deps: [ensure-build-dir]
+    cmds:
+      - go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} -v {{.BINARY_PATH}}
+    generates:
+      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
+
+  # Build for Linux (useful for Docker)
+  build-linux:
+    desc: Build Linux binary for Docker
+    deps: [ensure-build-dir]
+    cmds:
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux -v {{.BINARY_PATH}}
+    generates:
+      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}-linux'
+
+  # Run tests
+  test:
+    desc: Run all tests
+    cmds:
+      - go test -v ./...
+
+  # Run tests with race detection
+  test-race:
+    desc: Run tests with race detection
+    cmds:
+      - go test -race -v ./...
+
+  # Run tests with coverage
+  test-coverage:
+    desc: Run tests with coverage report
+    cmds:
+      - go test -coverprofile=coverage.out ./...
+      - go tool cover -html=coverage.out -o coverage.html
+    generates:
+      - coverage.out
+      - coverage.html
+
+  # Format code
+  fmt:
+    desc: Format Go code
+    cmds:
+      - gofmt -s -w .
+
+  # Vet code
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  # Lint code (requires golangci-lint)
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run
+
+  # Run all code quality checks
+  quality:
+    desc: Run all code quality checks
+    deps: [fmt, vet, lint]
+
+  # Run the application locally
+  run:
+    desc: Run the application with example config
+    deps: [build]
+    cmds:
+      - '{{.BUILD_DIR}}/{{.BINARY_NAME}} --config=configs/config.example.yaml'
+
+  # Run with environment variables
+  run-env:
+    desc: Run with environment variables
+    deps: [build]
+    env:
+      URL_TARGETS: "https://example.com,https://google.com"
+      URL_LOG_LEVEL: "debug"
+    cmds:
+      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
+
+  # Build Docker image
+  docker-build:
+    desc: Build Docker image
+    cmds:
+      - docker build -f deployments/docker/Dockerfile -t {{.DOCKER_IMAGE}}:{{.VERSION}} .
+
+  # Run Docker container
+  docker-run:
+    desc: Run Docker container
+    deps: [docker-build]
+    cmds:
+      - |
+        docker run -p 8080:8080 \
+          -e URL_TARGETS="https://example.com,https://google.com" \
+          -e URL_LOG_LEVEL="info" \
+          {{.DOCKER_IMAGE}}:{{.VERSION}}
+
+  # Install binary to system
+  install:
+    desc: Install binary to /usr/local/bin
+    deps: [build]
+    cmds:
+      - sudo cp {{.BUILD_DIR}}/{{.BINARY_NAME}} /usr/local/bin/
+
+  # Clean build artifacts
+  clean:
+    desc: Clean build artifacts and temporary files
+    cmds:
+      - rm -rf {{.BUILD_DIR}}
+      - rm -f coverage.out coverage.html
+      - go clean
+
+  # Development workflow
+  dev:
+    desc: Full development cycle (deps, quality, test, build)
+    deps: [deps, quality, test, build]
+
+  # CI/CD pipeline simulation
+  ci:
+    desc: Simulate CI/CD pipeline
+    deps: [deps, fmt, vet, lint, test-race, build]
+
+  # Release build (multi-platform)
+  release:
+    desc: Build release binaries for multiple platforms
+    deps: [ensure-build-dir]
+    cmds:
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-amd64 {{.BINARY_PATH}}
+      - CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-w -s" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-amd64 {{.BINARY_PATH}}
+      - CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-w -s" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-arm64 {{.BINARY_PATH}}
+      - CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-w -s" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64.exe {{.BINARY_PATH}}
+    generates:
+      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-amd64'
+      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-amd64'  
+      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-arm64'
+      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64.exe'

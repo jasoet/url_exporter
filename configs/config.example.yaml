@@ -1,0 +1,19 @@
+# Example configuration for URL Exporter
+targets:
+  - "https://example.com"                          # Basic HTTPS check
+  - "https://api.service.com/health"               # API health endpoint
+  - "http://internal-service:8080/status"          # Internal service check
+  - "https://cdn.example.com/assets/image.png"     # CDN availability
+  - "https://database-proxy:5432"                  # Database proxy check
+  - "https://monitoring.company.com/metrics"       # Monitoring endpoint
+  - "https://auth.service.com/oauth/token"         # Authentication service
+  - "https://external-api.vendor.com/v1/ping"     # External vendor API
+  - "http://load-balancer.local/health"            # Load balancer health
+  - "https://backup.storage.com/status"            # Backup service
+
+check_interval: 30s        # How often to check each URL
+timeout: 10s               # Timeout for each request
+listen_port: 8080          # Port to expose metrics on
+instance_id: ""            # Optional: custom instance identifier (defaults to hostname)
+retries: 3                 # Number of retries for failed requests
+log_level: "info"          # Log level: debug, info, warn, error

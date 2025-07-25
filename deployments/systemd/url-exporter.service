@@ -1,0 +1,34 @@
+[Unit]
+Description=Prometheus URL Availability Exporter
+Documentation=https://github.com/jasoet/url-exporter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=url-exporter
+Group=url-exporter
+ExecStart=/usr/local/bin/url-exporter --config=/etc/url-exporter/config.yaml
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=url-exporter
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/url-exporter
+
+# Resource limits
+LimitNOFILE=65536
+TimeoutStopSec=20s
+
+# Environment variables (optional)
+#Environment="URL_LOG_LEVEL=info"
+#Environment="URL_INSTANCE_ID=prod-server-01"
+
+[Install]
+WantedBy=multi-user.target
