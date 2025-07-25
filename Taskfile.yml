@@ -52,9 +52,10 @@ tasks:
   # Build the application (direct binary build)
   build:
     desc: Build the application binary directly (single platform)
-    deps: [ensure-build-dir]
+    deps: [ ensure-build-dir ]
     cmds:
       - go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} -v {{.BINARY_PATH}}
+      - cp -f configs/config.example.yaml {{.BUILD_DIR}}/config.example.yaml
     generates:
       - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
 
@@ -67,7 +68,7 @@ tasks:
   # Run tests with race detection and coverage
   test:
     desc: Run all tests with race detection and coverage report
-    deps: [ensure-build-dir]
+    deps: [ ensure-build-dir ]
     cmds:
       - go test -race -coverprofile={{.BUILD_DIR}}/coverage.out -v ./...
       - go tool cover -html={{.BUILD_DIR}}/coverage.out -o {{.BUILD_DIR}}/coverage.html
@@ -97,22 +98,28 @@ tasks:
   # Run all code quality checks
   quality:
     desc: Run all code quality checks
-    deps: [fmt, vet, lint]
+    deps: [ fmt, vet, lint ]
 
   # Run the application locally
   run:
     desc: Run the application with example config
-    deps: [build]
+    deps: [ build ]
+    env:
+      URL_CONFIG_FILE: '{{.BUILD_DIR}}/config.example.yaml'
+      URL_LOGLEVEL: "debug"
+      URL_CHECKINTERVAL: "6s"
     cmds:
-      - '{{.BUILD_DIR}}/{{.BINARY_NAME}} --config=configs/config.example.yaml'
+      - 'echo $URL_CONFIG_FILE'
+      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
 
   # Run with environment variables
   run-env:
     desc: Run with environment variables
-    deps: [build]
+    deps: [ build ]
     env:
       URL_TARGETS: "https://example.com,https://google.com"
-      URL_LOG_LEVEL: "debug"
+      URL_LOGLEVEL: "debug"
+      URL_CHECKINTERVAL: "6s"
     cmds:
       - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
 
@@ -125,7 +132,7 @@ tasks:
   # Run Docker container
   docker-run:
     desc: Run Docker container
-    deps: [docker-build]
+    deps: [ docker-build ]
     cmds:
       - |
         docker run -p 8412:8412 \
@@ -136,7 +143,7 @@ tasks:
   # Install binary to GOPATH/bin
   install:
     desc: Install binary to GOPATH/bin
-    deps: [build]
+    deps: [ build ]
     silent: true
     cmds:
       - cp {{.BUILD_DIR}}/{{.BINARY_NAME}} $(go env GOPATH)/bin/
@@ -152,17 +159,17 @@ tasks:
   # Initial project setup
   setup:
     desc: Initial project setup (install tools and dependencies)
-    deps: [install-tools, deps]
+    deps: [ install-tools, deps ]
 
   # Development workflow
   dev:
     desc: Full development cycle (install-tools, deps, quality, test, build)
-    deps: [install-tools, deps, quality, test, build]
+    deps: [ install-tools, deps, quality, test, build ]
 
   # CI/CD pipeline simulation
   ci:
     desc: Simulate CI/CD pipeline
-    deps: [deps, fmt, vet, lint, test, build]
+    deps: [ deps, fmt, vet, lint, test, build ]
 
   # Release build using goreleaser (CI/CD only)
   release:

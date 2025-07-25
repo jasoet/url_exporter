@@ -10,6 +10,10 @@ targets:
   - "https://stackoverflow.com"                    # Stack Overflow - popular site
   - "https://docs.docker.com"                      # Docker documentation
   - "https://kubernetes.io"                        # Kubernetes official site
+  - "https://nonexistent-domain-123.com"          # Nonexistent domain
+  - "http://localhost:3000"                       # Local development server
+  - "https://internal.company.local"              # Internal network URL
+  - "https://test.invalid"                        # Invalid TLD
 
 checkInterval: 30s        # How often to check each URL
 timeout: 10s              # Timeout for each request

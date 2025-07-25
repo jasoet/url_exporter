@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jasoet/pkg/config"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
@@ -68,6 +69,10 @@ func Load() (*Config, error) {
 
 func loadConfigFile() (string, error) {
 	if configPath := os.Getenv("URL_CONFIG_FILE"); configPath != "" {
+		log.Debug().
+			Str("configPath", configPath).
+			Msg("URL_CONFIG_FILE exist, read from it")
+
 		content, err := os.ReadFile(configPath)
 		if err != nil {
 			return "", fmt.Errorf("failed to read config file %s: %w", configPath, err)
