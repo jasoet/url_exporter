@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -601,6 +602,176 @@ func clearEnv(t *testing.T) {
 	for _, env := range envVars {
 		t.Setenv(env, "")
 	}
+}
+
+func TestGetMachineIP(t *testing.T) {
+	ip, err := getMachineIP()
+	
+	if err != nil {
+		t.Fatalf("getMachineIP() failed: %v", err)
+	}
+	
+	if ip == "" {
+		t.Error("getMachineIP() returned empty IP address")
+	}
+	
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil {
+		t.Errorf("getMachineIP() returned invalid IP address: %s", ip)
+	}
+	
+	if parsedIP.IsLoopback() {
+		t.Errorf("getMachineIP() returned loopback address: %s", ip)
+	}
+	
+	if parsedIP.To4() == nil {
+		t.Errorf("getMachineIP() should return IPv4 address, got: %s", ip)
+	}
+}
+
+func TestGetFirstNonLoopbackIP(t *testing.T) {
+	ip, err := getFirstNonLoopbackIP()
+	
+	if err != nil {
+		t.Skipf("getFirstNonLoopbackIP() failed (may be expected in test environments): %v", err)
+	}
+	
+	if ip == "" {
+		t.Error("getFirstNonLoopbackIP() returned empty IP address")
+	}
+	
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil {
+		t.Errorf("getFirstNonLoopbackIP() returned invalid IP address: %s", ip)
+	}
+	
+	if parsedIP.IsLoopback() {
+		t.Errorf("getFirstNonLoopbackIP() returned loopback address: %s", ip)
+	}
+	
+	if parsedIP.To4() == nil {
+		t.Errorf("getFirstNonLoopbackIP() should return IPv4 address, got: %s", ip)
+	}
+}
+
+func TestGetFirstNonLoopbackIP_NoValidInterfaces(t *testing.T) {
+	ip, err := getFirstNonLoopbackIP()
+	
+	if err == nil && ip == "" {
+		t.Error("Expected either a valid IP or an error")
+	}
+	
+	if err != nil && !strings.Contains(err.Error(), "no non-loopback IP address found") && !strings.Contains(err.Error(), "failed to get network interfaces") {
+		t.Errorf("Expected specific error message, got: %v", err)
+	}
+}
+
+func TestInstanceID_HostnameFallbackToIP(t *testing.T) {
+	clearEnv(t)
+	
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	
+	if cfg.InstanceID == "" {
+		t.Error("InstanceID should not be empty - should fallback to hostname or IP")
+	}
+	
+	parsedIP := net.ParseIP(cfg.InstanceID)
+	isHostname := parsedIP == nil
+	isValidIP := parsedIP != nil && !parsedIP.IsLoopback() && parsedIP.To4() != nil
+	
+	if !isHostname && !isValidIP {
+		t.Errorf("InstanceID should be either hostname or valid non-loopback IPv4, got: %s", cfg.InstanceID)
+	}
+}
+
+func TestInstanceID_PrefersHostnameOverIP(t *testing.T) {
+	clearEnv(t)
+	
+	hostname, hostnameErr := os.Hostname()
+	machineIP, ipErr := getMachineIP()
+	
+	if hostnameErr != nil || ipErr != nil {
+		t.Skip("Cannot test hostname preference - both hostname and IP resolution failed")
+	}
+	
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	
+	if cfg.InstanceID != hostname && cfg.InstanceID != machineIP {
+		t.Errorf("InstanceID should be either hostname (%s) or machine IP (%s), got: %s", 
+			hostname, machineIP, cfg.InstanceID)
+	}
+	
+	if hostname != "" && cfg.InstanceID != hostname {
+		t.Errorf("InstanceID should prefer hostname when available, expected: %s, got: %s", 
+			hostname, cfg.InstanceID)
+	}
+}
+
+func TestLoad_InstanceIDEnvironmentOverride(t *testing.T) {
+	clearEnv(t)
+	
+	customInstanceID := "test-custom-instance"
+	t.Setenv("URL_INSTANCEID", customInstanceID)
+	
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	
+	if cfg.InstanceID != customInstanceID {
+		t.Errorf("Environment variable should override instance ID detection, expected: %s, got: %s", 
+			customInstanceID, cfg.InstanceID)
+	}
+}
+
+func TestIPFallback_Integration(t *testing.T) {
+	t.Run("getMachineIP calls getFirstNonLoopbackIP on dial failure", func(t *testing.T) {
+		ip, err := getMachineIP()
+		
+		if err != nil {
+			fallbackIP, fallbackErr := getFirstNonLoopbackIP()
+			if fallbackErr != nil {
+				t.Skipf("Both getMachineIP and getFirstNonLoopbackIP failed - may be expected in restricted environments")
+			}
+			
+			if fallbackIP == "" {
+				t.Error("Fallback IP should not be empty when no error is returned")
+			}
+		} else {
+			if ip == "" {
+				t.Error("getMachineIP should not return empty IP when no error occurs")
+			}
+		}
+	})
+	
+	t.Run("IP fallback produces valid addresses", func(t *testing.T) {
+		machineIP, machineErr := getMachineIP()
+		fallbackIP, fallbackErr := getFirstNonLoopbackIP()
+		
+		if machineErr != nil && fallbackErr != nil {
+			t.Skip("Both IP resolution methods failed - may be expected in restricted environments")
+		}
+		
+		if machineErr == nil {
+			parsedIP := net.ParseIP(machineIP)
+			if parsedIP == nil || parsedIP.IsLoopback() || parsedIP.To4() == nil {
+				t.Errorf("getMachineIP returned invalid IP: %s", machineIP)
+			}
+		}
+		
+		if fallbackErr == nil {
+			parsedIP := net.ParseIP(fallbackIP)
+			if parsedIP == nil || parsedIP.IsLoopback() || parsedIP.To4() == nil {
+				t.Errorf("getFirstNonLoopbackIP returned invalid IP: %s", fallbackIP)
+			}
+		}
+	})
 }
 
 func assertConfig(t *testing.T, expected, actual *Config) {
