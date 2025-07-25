@@ -1,6 +1,7 @@
 package config
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"strings"
@@ -21,23 +22,16 @@ type Config struct {
 	LogLevel      string        `yaml:"log_level"`
 }
 
-// DefaultYAML provides default configuration in YAML format
-const DefaultYAML = `targets:
-  - "https://example.com"
-check_interval: 30s
-timeout: 10s
-listen_port: 8080
-instance_id: ""
-retries: 3
-log_level: "info"`
+//go:embed config.default.yml
+var defaultYAML string
 
 // Load loads configuration using jasoet/pkg/config patterns
 func Load() (*Config, error) {
 	// Try to load from file first
 	configContent, err := loadConfigFile()
 	if err != nil {
-		// Fallback to default if no config file found
-		configContent = DefaultYAML
+		// Fallback to embedded default configuration
+		configContent = defaultYAML
 	}
 
 	// Load configuration with environment variable override

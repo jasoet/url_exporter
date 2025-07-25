@@ -48,6 +48,7 @@ Thumbs.db
 # Configuration files with sensitive data
 config.yaml
 !configs/config.example.yaml
+!internal/config/config.default.yml
 
 # Environment files
 .env

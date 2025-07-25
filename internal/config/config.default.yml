@@ -1,0 +1,9 @@
+targets:
+  - "https://google.com"
+  - "https://github.com"
+check_interval: 30s
+timeout: 10s
+listen_port: 8080
+instance_id: ""
+retries: 3
+log_level: "info"
