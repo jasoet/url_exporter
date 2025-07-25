@@ -15,14 +15,23 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// VersionInfo holds version information injected at build time
+type VersionInfo struct {
+	Version string
+	Commit  string
+	Date    string
+	BuiltBy string
+}
+
 // URLExporterServer holds the application components
 type URLExporterServer struct {
 	config    *config.Config
 	checker   *checker.Checker
 	collector *metrics.Collector
+	version   *VersionInfo
 }
 
-func New(cfg *config.Config) (*URLExporterServer, error) {
+func New(cfg *config.Config, version *VersionInfo) (*URLExporterServer, error) {
 	chk := checker.New(cfg)
 	col := metrics.NewCollector(cfg, chk)
 
@@ -34,6 +43,7 @@ func New(cfg *config.Config) (*URLExporterServer, error) {
 		config:    cfg,
 		checker:   chk,
 		collector: col,
+		version:   version,
 	}
 
 	return s, nil
@@ -47,7 +57,10 @@ func (s *URLExporterServer) setupRoutes(e *echo.Echo) {
 func (s *URLExporterServer) handleRoot(c echo.Context) error {
 	info := map[string]interface{}{
 		"service":   "url-exporter",
-		"version":   "1.0.0",
+		"version":   s.version.Version,
+		"commit":    s.version.Commit,
+		"date":      s.version.Date,
+		"built_by":  s.version.BuiltBy,
 		"instance":  s.config.InstanceID,
 		"targets":   len(s.config.Targets),
 		"status":    "running",

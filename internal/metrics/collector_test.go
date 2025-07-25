@@ -29,6 +29,8 @@ func TestNewCollector(t *testing.T) {
 	assert.Equal(t, chk, collector.checker)
 	assert.NotNil(t, collector.lastResults)
 	assert.Equal(t, 0, len(collector.lastResults))
+	assert.NotNil(t, collector.counters)
+	assert.Equal(t, 0, len(collector.counters))
 	
 	// Verify all metric descriptors are created
 	assert.NotNil(t, collector.urlUp)
@@ -152,9 +154,11 @@ func TestCollector_Collect_SuccessfulResult(t *testing.T) {
 	
 	collector.mutex.Lock()
 	collector.lastResults[result.URL] = result
+	// Simulate counter tracking
+	collector.counters[result.URL] = map[string]int{"200": 1}
 	collector.mutex.Unlock()
 	
-	ch := make(chan prometheus.Metric, 10)
+	ch := make(chan prometheus.Metric, 20)
 	collector.Collect(ch)
 	close(ch)
 	
@@ -163,8 +167,8 @@ func TestCollector_Collect_SuccessfulResult(t *testing.T) {
 		metrics = append(metrics, metric)
 	}
 	
-	// Should have 4 metrics: url_up, url_error, url_response_time, url_http_status_code
-	assert.Equal(t, 4, len(metrics))
+	// Should have 6 metrics: url_up, url_error, url_response_time, url_http_status_code, url_check_total, url_status_code_total
+	assert.Equal(t, 6, len(metrics))
 	
 	// Verify metrics values
 	for _, metric := range metrics {
@@ -172,9 +176,8 @@ func TestCollector_Collect_SuccessfulResult(t *testing.T) {
 		err := metric.Write(dto)
 		require.NoError(t, err)
 		
-		// Check labels
+		// Check labels - counters have 5 labels, gauges have 4
 		labels := dto.GetLabel()
-		assert.Equal(t, 4, len(labels))
 		
 		var urlLabel, hostLabel, pathLabel, instanceLabel string
 		for _, label := range labels {
@@ -205,6 +208,14 @@ func TestCollector_Collect_SuccessfulResult(t *testing.T) {
 			assert.Equal(t, float64(150), dto.GetGauge().GetValue())
 		} else if strings.Contains(descStr, "url_http_status_code") {
 			assert.Equal(t, float64(200), dto.GetGauge().GetValue())
+		} else if strings.Contains(descStr, "url_check_total") {
+			// Counter metric should have 5 labels including status_code
+			assert.Equal(t, 5, len(labels))
+			assert.Equal(t, float64(1), dto.GetCounter().GetValue())
+		} else if strings.Contains(descStr, "url_status_code_total") {
+			// Counter metric should have 5 labels including status_code
+			assert.Equal(t, 5, len(labels))
+			assert.Equal(t, float64(1), dto.GetCounter().GetValue())
 		}
 	}
 }
@@ -231,9 +242,11 @@ func TestCollector_Collect_ErrorResult(t *testing.T) {
 	
 	collector.mutex.Lock()
 	collector.lastResults[result.URL] = result
+	// Simulate counter tracking for error
+	collector.counters[result.URL] = map[string]int{"error": 1}
 	collector.mutex.Unlock()
 	
-	ch := make(chan prometheus.Metric, 10)
+	ch := make(chan prometheus.Metric, 20)
 	collector.Collect(ch)
 	close(ch)
 	
@@ -242,8 +255,8 @@ func TestCollector_Collect_ErrorResult(t *testing.T) {
 		metrics = append(metrics, metric)
 	}
 	
-	// Should have 2 metrics: url_up and url_error (no response time or status code for errors)
-	assert.Equal(t, 2, len(metrics))
+	// Should have 4 metrics: url_up, url_error (gauges) + url_check_total, url_status_code_total (counters)
+	assert.Equal(t, 4, len(metrics))
 	
 	// Verify metrics values
 	for _, metric := range metrics {
@@ -256,6 +269,18 @@ func TestCollector_Collect_ErrorResult(t *testing.T) {
 			assert.Equal(t, float64(0), dto.GetGauge().GetValue())
 		} else if strings.Contains(descStr, "url_error") {
 			assert.Equal(t, float64(1), dto.GetGauge().GetValue())
+		} else if strings.Contains(descStr, "url_check_total") || strings.Contains(descStr, "url_status_code_total") {
+			// Counter metrics should have "error" as status_code
+			labels := dto.GetLabel()
+			var statusCodeLabel string
+			for _, label := range labels {
+				if label.GetName() == "status_code" {
+					statusCodeLabel = label.GetValue()
+					break
+				}
+			}
+			assert.Equal(t, "error", statusCodeLabel)
+			assert.Equal(t, float64(1), dto.GetCounter().GetValue())
 		}
 	}
 }
@@ -282,9 +307,11 @@ func TestCollector_Collect_HTTPErrorResult(t *testing.T) {
 	
 	collector.mutex.Lock()
 	collector.lastResults[result.URL] = result
+	// Simulate counter tracking for 404
+	collector.counters[result.URL] = map[string]int{"404": 1}
 	collector.mutex.Unlock()
 	
-	ch := make(chan prometheus.Metric, 10)
+	ch := make(chan prometheus.Metric, 20)
 	collector.Collect(ch)
 	close(ch)
 	
@@ -293,8 +320,8 @@ func TestCollector_Collect_HTTPErrorResult(t *testing.T) {
 		metrics = append(metrics, metric)
 	}
 	
-	// Should have 4 metrics: url_up, url_error, url_response_time, url_http_status_code
-	assert.Equal(t, 4, len(metrics))
+	// Should have 6 metrics: url_up, url_error, url_response_time, url_http_status_code + counters
+	assert.Equal(t, 6, len(metrics))
 	
 	// Verify metrics values
 	for _, metric := range metrics {
@@ -352,9 +379,12 @@ func TestCollector_Collect_MultipleResults(t *testing.T) {
 	for _, result := range results {
 		collector.lastResults[result.URL] = result
 	}
+	// Simulate counters
+	collector.counters["https://example.com"] = map[string]int{"200": 1}
+	collector.counters["https://test.com"] = map[string]int{"error": 1}
 	collector.mutex.Unlock()
 	
-	ch := make(chan prometheus.Metric, 20)
+	ch := make(chan prometheus.Metric, 30)
 	collector.Collect(ch)
 	close(ch)
 	
@@ -363,8 +393,10 @@ func TestCollector_Collect_MultipleResults(t *testing.T) {
 		metrics = append(metrics, metric)
 	}
 	
-	// Should have 6 metrics total: 4 for successful result + 2 for error result
-	assert.Equal(t, 6, len(metrics))
+	// Should have 10 metrics total: 
+	// - example.com: 4 gauges + 2 counters = 6
+	// - test.com: 2 gauges + 2 counters = 4
+	assert.Equal(t, 10, len(metrics))
 	
 	// Count metrics by URL
 	urlMetrics := make(map[string]int)
@@ -382,8 +414,8 @@ func TestCollector_Collect_MultipleResults(t *testing.T) {
 		}
 	}
 	
-	assert.Equal(t, 4, urlMetrics["https://example.com"]) // Success: url_up, url_error, response_time, status_code
-	assert.Equal(t, 2, urlMetrics["https://test.com"])    // Error: url_up, url_error only
+	assert.Equal(t, 6, urlMetrics["https://example.com"]) // Success: 4 gauges + 2 counters
+	assert.Equal(t, 4, urlMetrics["https://test.com"])    // Error: 2 gauges + 2 counters
 }
 
 func TestCollector_Register_Success(t *testing.T) {
@@ -462,15 +494,14 @@ func TestCollector_Start_ProcessResults(t *testing.T) {
 	// Start collector in background
 	go collector.Start(ctx)
 	
-	// We can't easily inject results into checker's channel in this test,
-	// so we'll just verify that Start doesn't panic and returns cleanly
-	
-	// Give some time for Start to be ready
+	// Give some time for Start to initialize counters
 	time.Sleep(50 * time.Millisecond)
 	
-	// We can't easily inject results into checker's channel in this test,
-	// so we'll just verify that Start doesn't panic and returns cleanly
-	// when context is cancelled
+	// Verify counters are initialized for configured targets
+	collector.mutex.RLock()
+	_, exists := collector.counters["https://example.com"]
+	collector.mutex.RUnlock()
+	assert.True(t, exists, "Counters should be initialized for configured targets")
 	
 	// Wait for context to timeout
 	<-ctx.Done()
@@ -478,10 +509,12 @@ func TestCollector_Start_ProcessResults(t *testing.T) {
 	// Verify the lastResults map is still accessible (no race conditions)
 	collector.mutex.RLock()
 	resultsCount := len(collector.lastResults)
+	countersCount := len(collector.counters)
 	collector.mutex.RUnlock()
 	
-	// Should be 0 since we couldn't inject results, but no panic should occur
+	// Should be 0 results since we couldn't inject results, but counters should be initialized
 	assert.Equal(t, 0, resultsCount)
+	assert.Equal(t, 1, countersCount)
 }
 
 func TestCollector_ThreadSafety(t *testing.T) {
@@ -616,9 +649,10 @@ func TestCollector_URLErrorMetric_HTTPError(t *testing.T) {
 	
 	collector.mutex.Lock()
 	collector.lastResults[result.URL] = result
+	collector.counters[result.URL] = map[string]int{"500": 1}
 	collector.mutex.Unlock()
 	
-	ch := make(chan prometheus.Metric, 10)
+	ch := make(chan prometheus.Metric, 20)
 	collector.Collect(ch)
 	close(ch)
 	
@@ -644,4 +678,155 @@ func TestCollector_URLErrorMetric_HTTPError(t *testing.T) {
 	assert.True(t, foundUrlError, "url_error metric should be present")
 	assert.Equal(t, float64(0), urlUpValue, "url_up should be 0 for non-2xx status codes")
 	assert.Equal(t, float64(0), urlErrorValue, "url_error should be 0 for HTTP responses (no network error)")
+}
+
+func TestCollector_CounterPersistence(t *testing.T) {
+	cfg := &config.Config{
+		Targets:    []string{"https://example.com"},
+		InstanceID: "test-instance",
+	}
+	
+	chk := checker.New(cfg)
+	collector := NewCollector(cfg, chk)
+	
+	// Add a successful result
+	result := &checker.Result{
+		URL:          "https://example.com",
+		Host:         "https://example.com",
+		Path:         "/",
+		StatusCode:   200,
+		ResponseTime: 150 * time.Millisecond,
+		Error:        nil,
+		Timestamp:    time.Now(),
+	}
+	
+	// Simulate multiple checks
+	collector.mutex.Lock()
+	collector.lastResults[result.URL] = result
+	collector.counters[result.URL] = map[string]int{
+		"200": 10,  // 10 successful checks
+		"404": 3,   // 3 not found
+		"500": 2,   // 2 server errors
+		"error": 1, // 1 network error
+	}
+	collector.mutex.Unlock()
+	
+	ch := make(chan prometheus.Metric, 30)
+	collector.Collect(ch)
+	close(ch)
+	
+	counterMetrics := make(map[string]float64)
+	
+	for metric := range ch {
+		dto := &dto.Metric{}
+		err := metric.Write(dto)
+		require.NoError(t, err)
+		
+		descStr := metric.Desc().String()
+		if strings.Contains(descStr, "url_check_total") || strings.Contains(descStr, "url_status_code_total") {
+			labels := dto.GetLabel()
+			var statusCode string
+			for _, label := range labels {
+				if label.GetName() == "status_code" {
+					statusCode = label.GetValue()
+					break
+				}
+			}
+			
+			if strings.Contains(descStr, "url_check_total") {
+				counterMetrics["check_"+statusCode] = dto.GetCounter().GetValue()
+			} else {
+				counterMetrics["status_"+statusCode] = dto.GetCounter().GetValue()
+			}
+		}
+	}
+	
+	// Verify all counters are exposed correctly
+	assert.Equal(t, float64(10), counterMetrics["check_200"])
+	assert.Equal(t, float64(10), counterMetrics["status_200"])
+	assert.Equal(t, float64(3), counterMetrics["check_404"])
+	assert.Equal(t, float64(3), counterMetrics["status_404"])
+	assert.Equal(t, float64(2), counterMetrics["check_500"])
+	assert.Equal(t, float64(2), counterMetrics["status_500"])
+	assert.Equal(t, float64(1), counterMetrics["check_error"])
+	assert.Equal(t, float64(1), counterMetrics["status_error"])
+}
+
+func TestCollector_MultipleURLsWithCounters(t *testing.T) {
+	cfg := &config.Config{
+		Targets:    []string{"https://example.com", "https://test.com", "https://api.com"},
+		InstanceID: "test-instance",
+	}
+	
+	chk := checker.New(cfg)
+	collector := NewCollector(cfg, chk)
+	
+	// Add results for multiple URLs
+	collector.mutex.Lock()
+	collector.lastResults["https://example.com"] = &checker.Result{
+		URL:          "https://example.com",
+		Host:         "https://example.com",
+		Path:         "/",
+		StatusCode:   200,
+		ResponseTime: 100 * time.Millisecond,
+		Error:        nil,
+		Timestamp:    time.Now(),
+	}
+	collector.counters["https://example.com"] = map[string]int{"200": 5, "500": 1}
+	
+	collector.lastResults["https://test.com"] = &checker.Result{
+		URL:          "https://test.com",
+		Host:         "https://test.com",
+		Path:         "/api",
+		StatusCode:   404,
+		ResponseTime: 200 * time.Millisecond,
+		Error:        nil,
+		Timestamp:    time.Now(),
+	}
+	collector.counters["https://test.com"] = map[string]int{"404": 3, "200": 7}
+	
+	collector.lastResults["https://api.com"] = &checker.Result{
+		URL:          "https://api.com",
+		Host:         "https://api.com",
+		Path:         "/v1",
+		StatusCode:   0,
+		ResponseTime: 0,
+		Error:        errors.New("timeout"),
+		Timestamp:    time.Now(),
+	}
+	collector.counters["https://api.com"] = map[string]int{"error": 2, "200": 8}
+	collector.mutex.Unlock()
+	
+	ch := make(chan prometheus.Metric, 50)
+	collector.Collect(ch)
+	close(ch)
+	
+	// Count metrics by type
+	metricCounts := make(map[string]int)
+	for metric := range ch {
+		descStr := metric.Desc().String()
+		if strings.Contains(descStr, "url_up") {
+			metricCounts["url_up"]++
+		} else if strings.Contains(descStr, "url_error") {
+			metricCounts["url_error"]++
+		} else if strings.Contains(descStr, "url_response_time") {
+			metricCounts["url_response_time"]++
+		} else if strings.Contains(descStr, "url_http_status_code") {
+			metricCounts["url_http_status_code"]++
+		} else if strings.Contains(descStr, "url_check_total") {
+			metricCounts["url_check_total"]++
+		} else if strings.Contains(descStr, "url_status_code_total") {
+			metricCounts["url_status_code_total"]++
+		}
+	}
+	
+	// Should have 3 of each gauge metric (one per URL)
+	assert.Equal(t, 3, metricCounts["url_up"])
+	assert.Equal(t, 3, metricCounts["url_error"])
+	assert.Equal(t, 2, metricCounts["url_response_time"]) // api.com has error, no response time
+	assert.Equal(t, 2, metricCounts["url_http_status_code"]) // api.com has error, no status code
+	
+	// Counter metrics: example.com has 2 statuses, test.com has 2, api.com has 2
+	assert.Equal(t, 6, metricCounts["url_check_total"])
+	assert.Equal(t, 6, metricCounts["url_status_code_total"])
 }

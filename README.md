@@ -5,7 +5,7 @@ A Go-based Prometheus exporter that monitors URL availability and exposes metric
 ## Features
 
 - **Concurrent URL Checking**: Uses worker pools for efficient concurrent monitoring
-- **Comprehensive Metrics**: Tracks availability, response times, status codes, and check counts
+- **Comprehensive Metrics**: 6 Prometheus metrics including gauges and counters for detailed monitoring
 - **Flexible Configuration**: Supports YAML files, environment variables, and command-line flags
 - **Multi-location Monitoring**: Instance labeling for identifying different network locations
 - **Retry Logic**: Configurable retry attempts for failed requests
@@ -21,7 +21,7 @@ A Go-based Prometheus exporter that monitors URL availability and exposes metric
 task build
 
 # Or manually
-go build -o dist/url-exporter ./app
+go build -o dist/url-exporter .
 ```
 
 2. Run the exporter (uses default config locations or environment variables):
@@ -135,13 +135,21 @@ If no config file is found, the application falls back to embedded defaults.
 
 The exporter provides the following Prometheus metrics:
 
-### Primary Metrics
+### Gauge Metrics
 
-- **`url_up{url, host, path, instance}`** - Binary metric (1 if URL returns 2xx status, 0 otherwise)
-- **`url_response_time_milliseconds{url, host, path, instance}`** - Response time in milliseconds
-- **`url_http_status_code{url, host, path, instance}`** - HTTP status code returned
-- **`url_check_total{url, host, path, status_code, instance}`** - Total checks counter by status
-- **`url_status_code_total{url, host, path, status_code, instance}`** - Counter per status code
+Labels: `url`, `host`, `path`, `instance`
+
+- **`url_up`** - URL availability (1 if URL returns 2xx status, 0 otherwise)
+- **`url_error`** - Network/connection error indicator (1 if error, 0 otherwise)
+- **`url_response_time_milliseconds`** - Response time in milliseconds (only when no error)
+- **`url_http_status_code`** - HTTP status code returned (only when no error)
+
+### Counter Metrics
+
+Labels: `url`, `host`, `path`, `status_code`, `instance`
+
+- **`url_check_total`** - Total number of checks performed by status code
+- **`url_status_code_total`** - Counter for each specific HTTP status code encountered
 
 ### Label Structure
 

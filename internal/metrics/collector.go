@@ -18,8 +18,8 @@ type Collector struct {
 	checker     *checker.Checker
 	mutex       sync.RWMutex
 	lastResults map[string]*checker.Result
+	counters    map[string]map[string]int // URL -> status_code -> count
 
-	// Metrics
 	urlUp              *prometheus.Desc
 	urlError           *prometheus.Desc
 	urlResponseTime    *prometheus.Desc
@@ -33,6 +33,7 @@ func NewCollector(cfg *config.Config, chk *checker.Checker) *Collector {
 		config:      cfg,
 		checker:     chk,
 		lastResults: make(map[string]*checker.Result),
+		counters:    make(map[string]map[string]int),
 
 		urlUp: prometheus.NewDesc(
 			"url_up",
@@ -129,13 +130,41 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			)
 		}
 	}
+
+	for url, statusCounts := range c.counters {
+		result, exists := c.lastResults[url]
+		if !exists {
+			continue
+		}
+
+		baseLabels := []string{url, result.Host, result.Path}
+
+		for statusCode, count := range statusCounts {
+			checkLabels := append(baseLabels, statusCode, c.config.InstanceID)
+			ch <- prometheus.MustNewConstMetric(
+				c.urlCheckTotal,
+				prometheus.CounterValue,
+				float64(count),
+				checkLabels...,
+			)
+
+			statusLabels := append(baseLabels, statusCode, c.config.InstanceID)
+			ch <- prometheus.MustNewConstMetric(
+				c.urlStatusCodeTotal,
+				prometheus.CounterValue,
+				float64(count),
+				statusLabels...,
+			)
+		}
+	}
 }
 
 func (c *Collector) Start(ctx context.Context) {
-	counters := make(map[string]map[string]int)
+	c.mutex.Lock()
 	for _, url := range c.config.Targets {
-		counters[url] = make(map[string]int)
+		c.counters[url] = make(map[string]int)
 	}
+	c.mutex.Unlock()
 
 	for {
 		select {
@@ -148,17 +177,17 @@ func (c *Collector) Start(ctx context.Context) {
 
 			c.mutex.Lock()
 			c.lastResults[result.URL] = &result
-			c.mutex.Unlock()
 
 			statusCode := "error"
 			if result.Error == nil {
 				statusCode = strconv.Itoa(result.StatusCode)
 			}
 
-			if _, exists := counters[result.URL]; !exists {
-				counters[result.URL] = make(map[string]int)
+			if _, exists := c.counters[result.URL]; !exists {
+				c.counters[result.URL] = make(map[string]int)
 			}
-			counters[result.URL][statusCode]++
+			c.counters[result.URL][statusCode]++
+			c.mutex.Unlock()
 
 			log.Debug().
 				Str("url", result.URL).

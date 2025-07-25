@@ -7,7 +7,7 @@ before:
 
 builds:
   - id: url-exporter
-    main: ./app
+    main: .
     binary: url-exporter
     env:
       - CGO_ENABLED=0
@@ -18,18 +18,53 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
 
 checksum:
   name_template: 'checksums.txt'
   algorithm: sha256
 
+snapshot:
+  name_template: "{{ incpatch .Version }}-snapshot"
+
 changelog:
   sort: asc
+  use: github
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "merge conflict"
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+  groups:
+    - title: 'New Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+'
+      order: 0
+    - title: 'Security Updates'
+      regexp: '^.*?sec(\([[:word:]]+\))??!?:.+'
+      order: 1
+    - title: 'Bug Fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+'
+      order: 2
+    - title: 'Performance Improvements'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+'
+      order: 3
+    - title: 'Refactors'
+      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+'
+      order: 4
+    - title: 'Documentation'
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+'
+      order: 5
+    - title: 'Other'
+      order: 999
 
 archives:
   - id: default
@@ -66,14 +101,55 @@ release:
   prerelease: auto
   mode: replace
   header: |
-    ## {{ .ProjectName }} {{ .Tag }} ({{ .Date }})
+    ## URL Exporter {{ .Tag }}
 
-    This is a release of {{ .ProjectName }} version {{ .Tag }}. See the changelog below for details.
+    ### Prometheus URL Availability Monitoring
+
+    This release includes improvements to the Go-based Prometheus exporter that monitors URL availability and exposes metrics for infrastructure health monitoring across multiple network locations.
+
+    ### Installation
+
+    ```bash
+    # Download the appropriate binary for your system
+    # Extract and place in your PATH
+    chmod +x url-exporter
+    ./url-exporter
+    ```
+
+    ### Quick Start
+
+    ```bash
+    # Using environment variables
+    export URL_TARGETS="https://example.com,https://google.com"
+    ./url-exporter
+
+    # Using config file
+    cp config.example.yaml config.yaml
+    ./url-exporter
+    ```
+
   footer: |
-    ## Installation
+    ### Key Features
 
-    Download the appropriate binary for your platform from the assets below.
+    - 🔍 **URL Health Monitoring** - HTTP HEAD requests for efficient checking
+    - 📊 **Comprehensive Prometheus Metrics** - 6 metrics (4 gauges + 2 counters) for detailed monitoring
+    - 🌐 **Multi-location Support** - Instance identification for distributed monitoring
+    - ⚡ **Concurrent Checking** - High-performance concurrent URL validation
+    - 🐳 **Docker Support** - Ready-to-use container images
+    - 📈 **Configurable Intervals** - Customizable check intervals and timeouts
 
-    For more information, see the [README.md](https://github.com/{{ .Env.GITHUB_REPOSITORY }}/blob/main/README.md).
+    ### Metrics Exposed
+
+    **Gauge Metrics** (labels: `url`, `host`, `path`, `instance`):
+    - `url_up` - URL availability (1 if URL returns 2xx status, 0 otherwise)
+    - `url_error` - Network/connection error indicator (1 if error, 0 otherwise)
+    - `url_response_time_milliseconds` - Response time in milliseconds (only when no error)
+    - `url_http_status_code` - HTTP status code returned (only when no error)
+
+    **Counter Metrics** (labels: `url`, `host`, `path`, `status_code`, `instance`):
+    - `url_check_total` - Total number of checks performed by status code
+    - `url_status_code_total` - Counter for each specific HTTP status code encountered
+
+    **Full documentation available in [CLAUDE.md](https://github.com/{{ .Env.GITHUB_REPOSITORY }}/blob/main/CLAUDE.md)**
 
 dist: dist

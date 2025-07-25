@@ -2,7 +2,6 @@ version: '3'
 
 vars:
   BINARY_NAME: url-exporter
-  BINARY_PATH: ./app
   BUILD_DIR: ./dist
   DOCKER_IMAGE: url-exporter
   VERSION: latest
@@ -54,7 +53,7 @@ tasks:
     desc: Build the application binary directly (single platform)
     deps: [ ensure-build-dir ]
     cmds:
-      - go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} -v {{.BINARY_PATH}}
+      - go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} -v .
       - cp -f configs/config.example.yaml {{.BUILD_DIR}}/config.example.yaml
     generates:
       - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'

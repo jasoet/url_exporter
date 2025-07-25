@@ -38,7 +38,7 @@ go install github.com/goreleaser/goreleaser/v2@latest
 go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
 # Building
-go mod download && go build -o dist/url-exporter ./app
+go mod download && go build -o dist/url-exporter .
 
 # Testing (with coverage in dist/)
 go test -race -coverprofile=dist/coverage.out -v ./...
@@ -77,8 +77,9 @@ GITHUB_REPOSITORY_OWNER=jasoet GITHUB_REPOSITORY_NAME=url_exporter IMAGE_NAME=ur
 
 3. **Metrics Collector** (`internal/metrics/`)
    - Implements Prometheus collector interface
-   - Exposes metrics: url_up, url_response_time_milliseconds, url_http_status_code, etc.
-   - Manages metric registration and updates
+   - Exposes 6 comprehensive metrics: 4 gauges + 2 counters
+   - All metrics include proper labels for multi-dimensional monitoring
+   - Manages metric registration, updates, and counter tracking
 
 4. **HTTP Server** (`internal/server/`)
    - **CRITICAL**: Uses `server.Start()` function pattern from jasoet/pkg/server examples
@@ -99,18 +100,35 @@ GITHUB_REPOSITORY_OWNER=jasoet GITHUB_REPOSITORY_NAME=url_exporter IMAGE_NAME=ur
 - Collector pattern for Prometheus metrics
 - Context-based operations with proper cancellation
 
+### Metrics Details
+
+#### Fully Implemented (6 metrics)
+
+**Gauge Metrics** (labels: `url`, `host`, `path`, `instance`):
+- `url_up` - 1 if URL returns 2xx status, 0 otherwise
+- `url_error` - 1 if network/connection error occurred, 0 otherwise  
+- `url_response_time_milliseconds` - Response time (only when no error)
+- `url_http_status_code` - HTTP status code (only when no error)
+
+**Counter Metrics** (labels: `url`, `host`, `path`, `status_code`, `instance`):
+- `url_check_total` - Total number of checks performed by status code
+- `url_status_code_total` - Counter for each specific HTTP status code encountered
+
+All metrics are properly implemented and exposed via the `/metrics` endpoint.
+
 ## Project Structure
 ```
 url-exporter/
-├── app/                     # Application entry point (main.go)
-├── internal/                # Private application code
-│   ├── config/             # Configuration structures and loading
-│   ├── checker/            # URL checking logic
-│   ├── metrics/            # Prometheus metrics implementation
-│   └── server/             # HTTP server setup
-├── configs/                # Example configuration files
-├── Dockerfile              # Docker container configuration
-└── docs/                   # Project documentation
+├── main.go                 # Application entry point
+├── main_test.go           # Main package tests
+├── internal/              # Private application code
+│   ├── config/           # Configuration structures and loading
+│   ├── checker/          # URL checking logic
+│   ├── metrics/          # Prometheus metrics implementation
+│   └── server/           # HTTP server setup
+├── configs/              # Example configuration files
+├── Dockerfile            # Docker container configuration
+└── docs/                 # Project documentation
 ```
 
 ## Important Notes
@@ -118,7 +136,7 @@ url-exporter/
 - **CRITICAL**: Must follow jasoet/pkg example patterns exactly - DO NOT implement from scratch
 - Always use header-only requests (no body download) for efficiency
 - Instance identification is critical for multi-location monitoring
-- All metrics must include url, host, path, and instance labels
+- All 6 metrics must include proper labels: 4 gauges with (url, host, path, instance), 2 counters with additional status_code label
 - Configuration validation happens at startup
 - Use Taskfile.dev for build system (NOT Makefile)
 - Project specification is in docs/SPECIFICATION.md

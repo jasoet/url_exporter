@@ -17,6 +17,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// testVersionInfo returns a version info for testing
+func testVersionInfo() *VersionInfo {
+	return &VersionInfo{
+		Version: "test-1.0.0",
+		Commit:  "test123",
+		Date:    "2024-01-01",
+		BuiltBy: "test",
+	}
+}
+
 // createTestServer creates a server with isolated Prometheus registry to avoid conflicts
 func createTestServer(cfg *config.Config) (*URLExporterServer, error) {
 	chk := checker.New(cfg)
@@ -32,6 +42,7 @@ func createTestServer(cfg *config.Config) (*URLExporterServer, error) {
 		config:    cfg,
 		checker:   chk,
 		collector: col,
+		version:   testVersionInfo(),
 	}
 
 	return s, nil
@@ -69,13 +80,14 @@ func TestNew_WithRegistrationFailure(t *testing.T) {
 	}
 
 	// Test actual New function which uses global registry
-	server1, err := New(cfg)
+	version := testVersionInfo()
+	server1, err := New(cfg, version)
 	assert.NoError(t, err)
 	assert.NotNil(t, server1)
 
 	// Second server creation might fail due to duplicate collector registration
 	// This is expected behavior with global registry
-	_, err2 := New(cfg)
+	_, err2 := New(cfg, version)
 	if err2 != nil {
 		assert.Contains(t, err2.Error(), "failed to register metrics collector")
 	}
@@ -114,7 +126,10 @@ func TestURLExporterServer_HandleRoot(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "url-exporter", response["service"])
-	assert.Equal(t, "1.0.0", response["version"])
+	assert.Equal(t, "test-1.0.0", response["version"])
+	assert.Equal(t, "test123", response["commit"])
+	assert.Equal(t, "2024-01-01", response["date"])
+	assert.Equal(t, "test", response["built_by"])
 	assert.Equal(t, "test-instance", response["instance"])
 	assert.Equal(t, float64(2), response["targets"]) // JSON unmarshals numbers as float64
 	assert.Equal(t, "running", response["status"])
@@ -439,7 +454,7 @@ func TestURLExporterServer_HandleRoot_JSONStructure(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify all expected fields are present
-	requiredFields := []string{"service", "version", "instance", "targets", "status", "endpoints"}
+	requiredFields := []string{"service", "version", "commit", "date", "built_by", "instance", "targets", "status", "endpoints"}
 	for _, field := range requiredFields {
 		assert.Contains(t, response, field, "Response should contain field: %s", field)
 	}

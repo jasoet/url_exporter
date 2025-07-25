@@ -8,6 +8,14 @@ import (
 	"os"
 )
 
+// Version information (injected at build time by GoReleaser)
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
+	builtBy = "unknown"
+)
+
 func main() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
@@ -25,6 +33,10 @@ func main() {
 	zerolog.SetGlobalLevel(level)
 
 	log.Info().
+		Str("version", version).
+		Str("commit", commit).
+		Str("date", date).
+		Str("built_by", builtBy).
 		Str("instance", cfg.InstanceID).
 		Int("port", cfg.ListenPort).
 		Int("targets", len(cfg.Targets)).
@@ -32,7 +44,14 @@ func main() {
 		Str("timeout", cfg.Timeout.String()).
 		Msg("Starting URL Exporter")
 
-	srv, err := server.New(cfg)
+	versionInfo := &server.VersionInfo{
+		Version: version,
+		Commit:  commit,
+		Date:    date,
+		BuiltBy: builtBy,
+	}
+	
+	srv, err := server.New(cfg, versionInfo)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create server")
 	}
