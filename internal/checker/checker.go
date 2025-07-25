@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/jasoet/pkg/concurrent"
@@ -30,6 +31,7 @@ type Checker struct {
 	httpClient *http.Client
 	results    chan Result
 	cancel     context.CancelFunc
+	mutex      sync.RWMutex
 }
 
 func New(cfg *config.Config) *Checker {
@@ -60,7 +62,9 @@ func New(cfg *config.Config) *Checker {
 
 func (c *Checker) Start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
+	c.mutex.Lock()
 	c.cancel = cancel
+	c.mutex.Unlock()
 
 	ticker := time.NewTicker(c.config.CheckInterval)
 	defer ticker.Stop()
@@ -205,8 +209,12 @@ func parseURL(targetURL string) (host, path string) {
 }
 
 func (c *Checker) Shutdown(_ context.Context) error {
-	if c.cancel != nil {
-		c.cancel()
+	c.mutex.RLock()
+	cancel := c.cancel
+	c.mutex.RUnlock()
+	
+	if cancel != nil {
+		cancel()
 	}
 	return nil
 }
