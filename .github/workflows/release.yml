@@ -21,9 +21,42 @@ env:
   GO_VERSION: 1.24
 
 jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Checkout the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # Step 2: Setup Go
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # Step 3: Install Task
+      - name: Install Task
+        run: |
+          curl -sL https://github.com/go-task/task/releases/latest/download/task_linux_amd64.tar.gz | tar -xz -C /tmp
+          sudo mv /tmp/task /usr/local/bin/task
+          task --version
+
+      # Step 4: Run tests
+      - name: Run tests
+        run: task test
+
+      # Step 5: Run linter
+      - name: Run linter
+        run: task lint
+
   semantic-release:
     name: Semantic Release
     runs-on: ubuntu-latest
+    needs: test
     # Only run on push to main branch
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     # Set permissions needed for creating releases and pushing tags
@@ -123,6 +156,7 @@ jobs:
   goreleaser-manual:
     name: Build and Publish Manual Release
     runs-on: ubuntu-latest
+    needs: test
     # Run ONLY on tag creation events (not on push to main)
     if: github.event_name == 'create' && github.event.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v')
 
