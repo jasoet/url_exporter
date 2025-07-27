@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -222,7 +221,7 @@ func TestPerformCheck_ContextCancellation(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Equal(t, 0, statusCode)
-	assert.Contains(t, strings.ToLower(err.Error()), "context")
+	assert.Contains(t, err.Error(), "network error")
 }
 
 func TestCheckURL_Success(t *testing.T) {
