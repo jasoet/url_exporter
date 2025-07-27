@@ -3,7 +3,7 @@ module github.com/jasoet/url-exporter
 go 1.24.5
 
 require (
-	github.com/jasoet/pkg v1.3.2
+	github.com/jasoet/pkg v1.3.3
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/prometheus/client_golang v1.22.0
 	github.com/prometheus/client_model v0.6.2
