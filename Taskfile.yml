@@ -108,7 +108,6 @@ tasks:
       URL_LOGLEVEL: "debug"
       URL_CHECKINTERVAL: "20s"
     cmds:
-      - 'echo $URL_CONFIG_FILE'
       - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
 
   # Run with environment variables

@@ -67,3 +67,6 @@ temp/
 url-exporter
 url-exporter-*
 node_modules/
+
+# IDE and tooling
+.serena/
