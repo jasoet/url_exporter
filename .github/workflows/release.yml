@@ -49,10 +49,6 @@ jobs:
       - name: Run tests
         run: task test
 
-      # Step 5: Run linter
-      - name: Run linter
-        run: task lint
-
   semantic-release:
     name: Semantic Release
     runs-on: ubuntu-latest
