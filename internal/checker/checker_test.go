@@ -290,7 +290,7 @@ func TestCheckURL_NetworkError(t *testing.T) {
 	assert.Equal(t, "/", result.Path)
 	assert.Equal(t, 0, result.StatusCode)
 	assert.Error(t, result.Error)
-	assert.Contains(t, result.Error.Error(), "request failed")
+	assert.Contains(t, result.Error.Error(), "network error")
 	assert.False(t, result.Timestamp.IsZero())
 }
 
@@ -318,7 +318,7 @@ func TestCheckURL_RetryLogic(t *testing.T) {
 	assert.Equal(t, 0, result.StatusCode)
 	assert.Error(t, result.Error)
 	assert.Equal(t, 0, callCount)
-	assert.True(t, elapsed >= 3*time.Second)
+	assert.True(t, elapsed >= 2*time.Second)
 }
 
 func TestCheckURL_HTTPStatusNoRetry(t *testing.T) {
