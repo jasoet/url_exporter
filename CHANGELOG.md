@@ -1,3 +1,13 @@
+## [2.1.2](https://github.com/jasoet/url_exporter/compare/v2.1.1...v2.1.2) (2025-07-27)
+
+
+### Bug Fixes
+
+* revert Go version back to 1.24.5 and prepare to fix go.sum ([e19fc3a](https://github.com/jasoet/url_exporter/commit/e19fc3abdb5c2d98bb40b46a1de4295ad2b5bdc7))
+* update Go version from 1.24.5 to 1.23 to resolve build failure ([7271f79](https://github.com/jasoet/url_exporter/commit/7271f79ec50369c3ab08619eee90c6e00fd18cda))
+* update test assertion for context cancellation ([6a85f1b](https://github.com/jasoet/url_exporter/commit/6a85f1b6efaa2976659d76e516318fec07228b23))
+* update test assertions to match current error handling behavior ([4e6f01d](https://github.com/jasoet/url_exporter/commit/4e6f01d9901ca448d258beacbccfe4129933d96b))
+
 ## [2.1.1](https://github.com/jasoet/url_exporter/compare/v2.1.0...v2.1.1) (2025-07-27)
 
 
