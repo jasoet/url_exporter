@@ -1,3 +1,10 @@
+## [2.1.1](https://github.com/jasoet/url_exporter/compare/v2.1.0...v2.1.1) (2025-07-27)
+
+
+### Bug Fixes
+
+* resolve test failures and wrapped error handling issues ([5b6a2ff](https://github.com/jasoet/url_exporter/commit/5b6a2ff286cbebb92614afefce420cde279f05ed))
+
 # [2.1.0](https://github.com/jasoet/url_exporter/compare/v2.0.0...v2.1.0) (2025-07-25)
 
 
