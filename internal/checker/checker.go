@@ -2,7 +2,7 @@ package checker
 
 import (
 	"context"
-	"crypto/tls"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jasoet/pkg/concurrent"
+	"github.com/jasoet/pkg/rest"
 	"github.com/jasoet/url-exporter/internal/config"
 	"github.com/rs/zerolog/log"
 )
@@ -28,34 +29,24 @@ type Result struct {
 // Checker performs URL availability checks
 type Checker struct {
 	config     *config.Config
-	httpClient *http.Client
+	restClient *rest.Client
 	results    chan Result
 	cancel     context.CancelFunc
 	mutex      sync.RWMutex
 }
 
 func New(cfg *config.Config) *Checker {
-	httpClient := &http.Client{
-		Timeout: cfg.Timeout,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: false,
-			},
-			MaxIdleConns:        100,
-			MaxIdleConnsPerHost: 10,
-			IdleConnTimeout:     90 * time.Second,
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if len(via) >= 10 {
-				return fmt.Errorf("too many redirects")
-			}
-			return nil
-		},
+	restConfig := &rest.Config{
+		RetryCount:    cfg.Retries,
+		RetryWaitTime: time.Second,
+		Timeout:       cfg.Timeout,
 	}
+
+	restClient := rest.NewClient(rest.WithRestConfig(*restConfig))
 
 	return &Checker{
 		config:     cfg,
-		httpClient: httpClient,
+		restClient: restClient,
 		results:    make(chan Result, len(cfg.Targets)*2),
 	}
 }
@@ -127,65 +118,65 @@ func (c *Checker) checkURL(ctx context.Context, targetURL string) Result {
 		Timestamp: time.Now(),
 	}
 
-	var lastErr error
-	for attempt := 0; attempt <= c.config.Retries; attempt++ {
-		if attempt > 0 {
-			time.Sleep(time.Duration(attempt) * time.Second)
-		}
+	start := time.Now()
+	statusCode, err := c.performCheck(ctx, targetURL)
+	elapsed := time.Since(start)
 
-		start := time.Now()
-		statusCode, err := c.performCheck(ctx, targetURL)
-		elapsed := time.Since(start)
+	if err == nil {
+		result.StatusCode = statusCode
+		result.ResponseTime = elapsed
+		result.Error = nil
 
-		if err == nil {
-			result.StatusCode = statusCode
-			result.ResponseTime = elapsed
-			result.Error = nil
-
-			log.Debug().
-				Str("url", targetURL).
-				Int("status_code", statusCode).
-				Dur("response_time", elapsed).
-				Msg("URL check successful")
-
-			return result
-		}
-
-		lastErr = err
-		log.Warn().
+		log.Debug().
 			Str("url", targetURL).
-			Err(err).
-			Int("attempt", attempt+1).
-			Int("max_attempts", c.config.Retries+1).
-			Msg("URL check failed")
+			Int("status_code", statusCode).
+			Dur("response_time", elapsed).
+			Msg("URL check successful")
+
+		return result
 	}
 
-	result.Error = lastErr
+	result.Error = err
 	result.StatusCode = 0
 
 	log.Error().
 		Str("url", targetURL).
-		Err(lastErr).
-		Msg("URL check failed after all retries")
+		Err(err).
+		Msg("URL check failed")
 
 	return result
 }
 
 func (c *Checker) performCheck(ctx context.Context, targetURL string) (int, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, targetURL, nil)
-	if err != nil {
-		return 0, fmt.Errorf("failed to create request: %w", err)
+	headers := map[string]string{
+		"User-Agent": "url-exporter/1.0",
 	}
 
-	req.Header.Set("User-Agent", "url-exporter/1.0")
-
-	resp, err := c.httpClient.Do(req)
+	response, err := c.restClient.MakeRequest(ctx, http.MethodHead, targetURL, "", headers)
 	if err != nil {
-		return 0, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
+		var executionErr *rest.ExecutionError
+		var unauthorizedErr *rest.UnauthorizedError
+		var notFoundErr *rest.ResourceNotFoundError
+		var serverErr *rest.ServerError
+		var responseErr *rest.ResponseError
 
-	return resp.StatusCode, nil
+		switch {
+		case errors.As(err, &executionErr):
+			return 0, fmt.Errorf("network error: %w", executionErr)
+		case errors.As(err, &unauthorizedErr):
+			return unauthorizedErr.StatusCode, nil
+		case errors.As(err, &notFoundErr):
+			return notFoundErr.StatusCode, nil
+		case errors.As(err, &serverErr):
+			return serverErr.StatusCode, nil
+		case errors.As(err, &responseErr):
+			return responseErr.StatusCode, nil
+		default:
+			return 0, fmt.Errorf("request failed: %w", err)
+		}
+	}
+
+	return response.StatusCode(), nil
 }
 
 func parseURL(targetURL string) (host, path string) {
@@ -212,7 +203,7 @@ func (c *Checker) Shutdown(_ context.Context) error {
 	c.mutex.RLock()
 	cancel := c.cancel
 	c.mutex.RUnlock()
-	
+
 	if cancel != nil {
 		cancel()
 	}

@@ -12,7 +12,7 @@ var (
 	version = "dev"
 	commit  = "unknown"
 	date    = "unknown"
-	builtBy = "@jasoet"
+	builtBy = "unknown"
 )
 
 func main() {

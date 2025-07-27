@@ -24,13 +24,13 @@ func TestNew(t *testing.T) {
 
 	assert.NotNil(t, checker)
 	assert.Equal(t, cfg, checker.config)
-	assert.NotNil(t, checker.httpClient)
+	assert.NotNil(t, checker.restClient)
 	assert.NotNil(t, checker.results)
-	assert.Equal(t, 5*time.Second, checker.httpClient.Timeout)
+	assert.Equal(t, 5*time.Second, checker.restClient.GetRestConfig().Timeout)
 	assert.Equal(t, len(cfg.Targets)*2, cap(checker.results))
 }
 
-func TestNew_HTTPClientConfiguration(t *testing.T) {
+func TestNew_RestClientConfiguration(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []string{"https://example.com"},
 		Timeout: 10 * time.Second,
@@ -39,14 +39,13 @@ func TestNew_HTTPClientConfiguration(t *testing.T) {
 
 	checker := New(cfg)
 
-	transport := checker.httpClient.Transport.(*http.Transport)
-	assert.False(t, transport.TLSClientConfig.InsecureSkipVerify)
-	assert.Equal(t, 100, transport.MaxIdleConns)
-	assert.Equal(t, 10, transport.MaxIdleConnsPerHost)
-	assert.Equal(t, 90*time.Second, transport.IdleConnTimeout)
+	restConfig := checker.restClient.GetRestConfig()
+	assert.Equal(t, 10*time.Second, restConfig.Timeout)
+	assert.Equal(t, 2, restConfig.RetryCount)
+	assert.Equal(t, time.Second, restConfig.RetryWaitTime)
 }
 
-func TestNew_RedirectPolicy(t *testing.T) {
+func TestNew_RestClientExists(t *testing.T) {
 	cfg := &config.Config{
 		Targets: []string{"https://example.com"},
 		Timeout: 5 * time.Second,
@@ -54,19 +53,8 @@ func TestNew_RedirectPolicy(t *testing.T) {
 
 	checker := New(cfg)
 
-	req := &http.Request{}
-	var via []*http.Request
-
-	for i := 0; i < 9; i++ {
-		via = append(via, &http.Request{})
-	}
-	err := checker.httpClient.CheckRedirect(req, via)
-	assert.NoError(t, err)
-
-	via = append(via, &http.Request{})
-	err = checker.httpClient.CheckRedirect(req, via)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "too many redirects")
+	assert.NotNil(t, checker.restClient)
+	assert.NotNil(t, checker.restClient.GetRestClient())
 }
 
 func TestParseURL(t *testing.T) {
@@ -193,7 +181,7 @@ func TestPerformCheck_NetworkError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Equal(t, 0, statusCode)
-	assert.Contains(t, err.Error(), "request failed")
+	assert.Contains(t, err.Error(), "network error")
 }
 
 func TestPerformCheck_InvalidURL(t *testing.T) {
@@ -210,7 +198,7 @@ func TestPerformCheck_InvalidURL(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Equal(t, 0, statusCode)
-	assert.Contains(t, err.Error(), "failed to create request")
+	assert.Contains(t, err.Error(), "network error")
 }
 
 func TestPerformCheck_ContextCancellation(t *testing.T) {
