@@ -2,13 +2,17 @@ package checker
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/jasoet/pkg/rest"
 	"github.com/jasoet/url-exporter/internal/config"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
@@ -197,7 +201,7 @@ func TestPerformCheck_InvalidURL(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Equal(t, 0, statusCode)
-	assert.Contains(t, err.Error(), "network error")
+	assert.Contains(t, err.Error(), "invalid URL")
 }
 
 func TestPerformCheck_ContextCancellation(t *testing.T) {
@@ -565,5 +569,498 @@ func TestCheckAllURLs_ConcurrentExecution(t *testing.T) {
 	for _, result := range results {
 		assert.NoError(t, result.Error)
 		assert.Equal(t, http.StatusOK, result.StatusCode)
+	}
+}
+
+// Protocol Checker Tests
+
+func TestHTTPChecker_NewHTTPChecker(t *testing.T) {
+	cfg := &config.Config{
+		Timeout: 5 * time.Second,
+		Retries: 1,
+	}
+	
+	restConfig := &rest.Config{
+		Timeout: cfg.Timeout,
+		RetryCount: cfg.Retries,
+		RetryWaitTime: time.Second,
+	}
+	restClient := rest.NewClient(rest.WithRestConfig(*restConfig))
+	
+	checker := NewHTTPChecker(restClient)
+	
+	assert.NotNil(t, checker)
+	assert.NotNil(t, checker.restClient)
+	assert.Equal(t, "http", checker.Protocol())
+}
+
+func TestHTTPChecker_Check_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "HEAD", r.Method)
+		assert.Equal(t, "url-exporter/1.0", r.Header.Get("User-Agent"))
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	
+	cfg := &config.Config{
+		Timeout: 5 * time.Second,
+		Retries: 1,
+	}
+	
+	restConfig := &rest.Config{
+		Timeout: cfg.Timeout,
+		RetryCount: cfg.Retries,
+		RetryWaitTime: time.Second,
+	}
+	restClient := rest.NewClient(rest.WithRestConfig(*restConfig))
+	
+	checker := NewHTTPChecker(restClient)
+	ctx := context.Background()
+	
+	statusCode, err := checker.Check(ctx, server.URL)
+	
+	assert.NoError(t, err)
+	assert.Equal(t, 200, statusCode)
+}
+
+func TestHTTPChecker_Check_HTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+	
+	cfg := &config.Config{
+		Timeout: 5 * time.Second,
+		Retries: 1,
+	}
+	
+	restConfig := &rest.Config{
+		Timeout: cfg.Timeout,
+		RetryCount: cfg.Retries,
+		RetryWaitTime: time.Second,
+	}
+	restClient := rest.NewClient(rest.WithRestConfig(*restConfig))
+	
+	checker := NewHTTPChecker(restClient)
+	ctx := context.Background()
+	
+	statusCode, err := checker.Check(ctx, server.URL)
+	
+	assert.NoError(t, err)
+	assert.Equal(t, 404, statusCode)
+}
+
+func TestHTTPChecker_Check_NetworkError(t *testing.T) {
+	cfg := &config.Config{
+		Timeout: 1 * time.Second,
+		Retries: 1,
+	}
+	
+	restConfig := &rest.Config{
+		Timeout: cfg.Timeout,
+		RetryCount: cfg.Retries,
+		RetryWaitTime: time.Second,
+	}
+	restClient := rest.NewClient(rest.WithRestConfig(*restConfig))
+	
+	checker := NewHTTPChecker(restClient)
+	ctx := context.Background()
+	
+	statusCode, err := checker.Check(ctx, "http://localhost:99999")
+	
+	assert.Error(t, err)
+	assert.Equal(t, 0, statusCode)
+	assert.Contains(t, err.Error(), "network error")
+}
+
+func TestTelnetChecker_NewTelnetChecker(t *testing.T) {
+	timeout := 5 * time.Second
+	checker := NewTelnetChecker(timeout)
+	
+	assert.NotNil(t, checker)
+	assert.Equal(t, timeout, checker.timeout)
+	assert.Equal(t, "telnet", checker.Protocol())
+}
+
+func TestTelnetChecker_Check_Success(t *testing.T) {
+	// Start a test TCP server
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+	
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			conn.Close()
+		}
+	}()
+	
+	timeout := 5 * time.Second
+	checker := NewTelnetChecker(timeout)
+	ctx := context.Background()
+	
+	// Use the listener's address
+	targetURL := fmt.Sprintf("tcp://%s", listener.Addr().String())
+	
+	statusCode, err := checker.Check(ctx, targetURL)
+	
+	assert.NoError(t, err)
+	assert.Equal(t, 200, statusCode)
+}
+
+func TestTelnetChecker_Check_ConnectionFailure(t *testing.T) {
+	timeout := 1 * time.Second
+	checker := NewTelnetChecker(timeout)
+	ctx := context.Background()
+	
+	statusCode, err := checker.Check(ctx, "tcp://localhost:99999")
+	
+	assert.Error(t, err)
+	assert.Equal(t, 0, statusCode)
+	assert.Contains(t, err.Error(), "connection failed")
+}
+
+func TestTelnetChecker_Check_InvalidURL(t *testing.T) {
+	timeout := 5 * time.Second
+	checker := NewTelnetChecker(timeout)
+	ctx := context.Background()
+	
+	statusCode, err := checker.Check(ctx, "://invalid-url")
+	
+	assert.Error(t, err)
+	assert.Equal(t, 0, statusCode)
+	assert.Contains(t, err.Error(), "invalid URL")
+}
+
+func TestTelnetChecker_Check_ContextCancellation(t *testing.T) {
+	timeout := 5 * time.Second
+	checker := NewTelnetChecker(timeout)
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	
+	statusCode, err := checker.Check(ctx, "tcp://1.1.1.1:12345")
+	
+	assert.Error(t, err)
+	assert.Equal(t, 0, statusCode)
+}
+
+func TestTelnetChecker_Check_DefaultPorts(t *testing.T) {
+	timeout := 1 * time.Second
+	checker := NewTelnetChecker(timeout)
+	ctx := context.Background()
+	
+	testCases := []struct {
+		name     string
+		url      string
+		expected string
+	}{
+		{"FTP", "ftp://example.com", "21"},
+		{"SFTP", "sftp://example.com", "22"},
+		{"SSH", "ssh://example.com", "22"},
+		{"Telnet", "telnet://example.com", "23"},
+		{"SMTP", "smtp://example.com", "25"},
+		{"MySQL", "mysql://example.com", "3306"},
+		{"PostgreSQL", "postgres://example.com", "5432"},
+		{"PostgreSQL Alt", "postgresql://example.com", "5432"},
+		{"Redis", "redis://example.com", "6379"},
+		{"MongoDB", "mongodb://example.com", "27017"},
+	}
+	
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// We expect all these to fail with connection refused/timeout
+			// but we're testing that the URL parsing and port assignment works
+			statusCode, err := checker.Check(ctx, tc.url)
+			
+			assert.Error(t, err)
+			assert.Equal(t, 0, statusCode)
+			assert.Contains(t, err.Error(), "connection failed")
+		})
+	}
+}
+
+func TestTelnetChecker_Check_UnsupportedProtocol(t *testing.T) {
+	timeout := 5 * time.Second
+	checker := NewTelnetChecker(timeout)
+	ctx := context.Background()
+	
+	statusCode, err := checker.Check(ctx, "unknown://example.com")
+	
+	assert.Error(t, err)
+	assert.Equal(t, 0, statusCode)
+	assert.Contains(t, err.Error(), "no default port for scheme: unknown")
+}
+
+func TestTelnetChecker_Check_ExplicitPort(t *testing.T) {
+	// Start a test TCP server
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+	
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			conn.Close()
+		}
+	}()
+	
+	timeout := 5 * time.Second
+	checker := NewTelnetChecker(timeout)
+	ctx := context.Background()
+	
+	// Extract port from listener address
+	_, port, err := net.SplitHostPort(listener.Addr().String())
+	require.NoError(t, err)
+	
+	targetURL := fmt.Sprintf("ftp://127.0.0.1:%s", port)
+	
+	statusCode, err := checker.Check(ctx, targetURL)
+	
+	assert.NoError(t, err)
+	assert.Equal(t, 200, statusCode)
+}
+
+func TestPerformCheck_ProtocolSelection_HTTP(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	
+	cfg := &config.Config{
+		Targets: []string{server.URL},
+		Timeout: 5 * time.Second,
+		Retries: 1,
+	}
+	
+	checker := New(cfg)
+	ctx := context.Background()
+	
+	statusCode, err := checker.performCheck(ctx, server.URL)
+	
+	assert.NoError(t, err)
+	assert.Equal(t, 200, statusCode)
+}
+
+func TestPerformCheck_ProtocolSelection_HTTPS(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	
+	cfg := &config.Config{
+		Targets: []string{server.URL},
+		Timeout: 5 * time.Second,
+		Retries: 1,
+	}
+	
+	checker := New(cfg)
+	ctx := context.Background()
+	
+	statusCode, err := checker.performCheck(ctx, server.URL)
+	
+	assert.NoError(t, err)
+	assert.Equal(t, 200, statusCode)
+}
+
+func TestPerformCheck_ProtocolSelection_TCP(t *testing.T) {
+	// Start a test TCP server
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+	
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			conn.Close()
+		}
+	}()
+	
+	cfg := &config.Config{
+		Timeout: 5 * time.Second,
+		Retries: 1,
+	}
+	
+	checker := New(cfg)
+	ctx := context.Background()
+	
+	targetURL := fmt.Sprintf("ftp://%s", listener.Addr().String())
+	
+	statusCode, err := checker.performCheck(ctx, targetURL)
+	
+	assert.NoError(t, err)
+	assert.Equal(t, 200, statusCode)
+}
+
+func TestPerformCheck_UnsupportedProtocol(t *testing.T) {
+	cfg := &config.Config{
+		Timeout: 5 * time.Second,
+		Retries: 1,
+	}
+	
+	checker := New(cfg)
+	ctx := context.Background()
+	
+	statusCode, err := checker.performCheck(ctx, "unknown://example.com")
+	
+	assert.Error(t, err)
+	assert.Equal(t, 0, statusCode)
+	assert.Contains(t, err.Error(), "unsupported protocol: unknown")
+}
+
+func TestChecker_ProtocolCheckersInitialization(t *testing.T) {
+	cfg := &config.Config{
+		Targets: []string{"https://example.com"},
+		Timeout: 5 * time.Second,
+		Retries: 1,
+	}
+	
+	checker := New(cfg)
+	
+	// Verify all expected protocol checkers are initialized
+	expectedProtocols := []string{
+		"http", "https", "ftp", "sftp", "ssh", "telnet", 
+		"smtp", "mysql", "postgres", "postgresql", "redis", "mongodb",
+	}
+	
+	for _, protocol := range expectedProtocols {
+		protocolChecker, exists := checker.checkers[protocol]
+		assert.True(t, exists, "Protocol checker for %s should exist", protocol)
+		assert.NotNil(t, protocolChecker, "Protocol checker for %s should not be nil", protocol)
+	}
+	
+	// Verify HTTP/HTTPS use HTTPChecker
+	httpChecker, ok := checker.checkers["http"].(*HTTPChecker)
+	assert.True(t, ok, "HTTP checker should be HTTPChecker type")
+	assert.NotNil(t, httpChecker.restClient)
+	
+	httpsChecker, ok := checker.checkers["https"].(*HTTPChecker)
+	assert.True(t, ok, "HTTPS checker should be HTTPChecker type")
+	assert.NotNil(t, httpsChecker.restClient)
+	
+	// Verify non-HTTP protocols use TelnetChecker
+	ftpChecker, ok := checker.checkers["ftp"].(*TelnetChecker)
+	assert.True(t, ok, "FTP checker should be TelnetChecker type")
+	assert.Equal(t, cfg.Timeout, ftpChecker.timeout)
+}
+
+func TestCheckURL_MultipleProtocols_Integration(t *testing.T) {
+	// Start HTTP server
+	httpServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer httpServer.Close()
+	
+	// Start TCP server for non-HTTP protocol
+	tcpListener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer tcpListener.Close()
+	
+	go func() {
+		for {
+			conn, err := tcpListener.Accept()
+			if err != nil {
+				return
+			}
+			conn.Close()
+		}
+	}()
+	
+	tcpURL := fmt.Sprintf("ftp://%s", tcpListener.Addr().String())
+	
+	cfg := &config.Config{
+		Targets: []string{httpServer.URL, tcpURL},
+		Timeout: 5 * time.Second,
+		Retries: 1,
+	}
+	
+	checker := New(cfg)
+	ctx := context.Background()
+	
+	// Test HTTP protocol
+	httpResult := checker.checkURL(ctx, httpServer.URL)
+	assert.NoError(t, httpResult.Error)
+	assert.Equal(t, 200, httpResult.StatusCode)
+	assert.Equal(t, httpServer.URL, httpResult.URL)
+	assert.True(t, httpResult.ResponseTime > 0)
+	
+	// Test FTP protocol
+	ftpResult := checker.checkURL(ctx, tcpURL)
+	assert.NoError(t, ftpResult.Error)
+	assert.Equal(t, 200, ftpResult.StatusCode)
+	assert.Equal(t, tcpURL, ftpResult.URL)
+	assert.True(t, ftpResult.ResponseTime > 0)
+}
+
+func TestChecker_ProtocolSpecificErrorHandling(t *testing.T) {
+	cfg := &config.Config{
+		Timeout: 1 * time.Second,
+		Retries: 1,
+	}
+	
+	checker := New(cfg)
+	ctx := context.Background()
+	
+	testCases := []struct {
+		name        string
+		url         string
+		expectError bool
+		errorType   string
+	}{
+		{
+			name:        "HTTP Network Error",
+			url:         "http://localhost:99999",
+			expectError: true,
+			errorType:   "network error",
+		},
+		{
+			name:        "TCP Connection Error",
+			url:         "ftp://localhost:99999",
+			expectError: true,
+			errorType:   "connection failed",
+		},
+		{
+			name:        "Invalid URL HTTP",
+			url:         "http://",
+			expectError: true,
+			errorType:   "network error",
+		},
+		{
+			name:        "Invalid URL TCP",
+			url:         "ftp://",
+			expectError: true,
+			errorType:   "invalid URL",
+		},
+		{
+			name:        "Unsupported Protocol",
+			url:         "gopher://example.com",
+			expectError: true,
+			errorType:   "unsupported protocol",
+		},
+	}
+	
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := checker.checkURL(ctx, tc.url)
+			
+			if tc.expectError {
+				assert.Error(t, result.Error, "Expected error for %s", tc.name)
+				assert.Contains(t, result.Error.Error(), tc.errorType, 
+					"Error should contain '%s' for %s", tc.errorType, tc.name)
+				assert.Equal(t, 0, result.StatusCode)
+			} else {
+				assert.NoError(t, result.Error, "Expected no error for %s", tc.name)
+				assert.NotEqual(t, 0, result.StatusCode)
+			}
+		})
 	}
 }

@@ -209,12 +209,12 @@ func TestCollector_Collect_SuccessfulResult(t *testing.T) {
 		} else if strings.Contains(descStr, "url_http_status_code") {
 			assert.Equal(t, float64(200), dto.GetGauge().GetValue())
 		} else if strings.Contains(descStr, "url_check_total") {
-			// Counter metric should have 5 labels including status_code
-			assert.Equal(t, 5, len(labels))
+			// Counter metric should have 6 labels including status_code and protocol
+			assert.Equal(t, 6, len(labels))
 			assert.Equal(t, float64(1), dto.GetCounter().GetValue())
 		} else if strings.Contains(descStr, "url_status_code_total") {
-			// Counter metric should have 5 labels including status_code
-			assert.Equal(t, 5, len(labels))
+			// Counter metric should have 6 labels including status_code and protocol
+			assert.Equal(t, 6, len(labels))
 			assert.Equal(t, float64(1), dto.GetCounter().GetValue())
 		}
 	}

@@ -3,6 +3,7 @@ package metrics
 import (
 	"context"
 	"fmt"
+	neturl "net/url"
 	"strconv"
 	"sync"
 
@@ -38,37 +39,37 @@ func NewCollector(cfg *config.Config, chk *checker.Checker) *Collector {
 		urlUp: prometheus.NewDesc(
 			"url_up",
 			"URL is up (1 if URL returns 2xx status, 0 otherwise)",
-			[]string{"url", "host", "path", "instance"},
+			[]string{"url", "host", "path", "protocol", "instance"},
 			nil,
 		),
 		urlResponseTime: prometheus.NewDesc(
 			"url_response_time_milliseconds",
 			"Response time in milliseconds",
-			[]string{"url", "host", "path", "instance"},
+			[]string{"url", "host", "path", "protocol", "instance"},
 			nil,
 		),
 		urlHTTPStatusCode: prometheus.NewDesc(
 			"url_http_status_code",
 			"HTTP status code returned",
-			[]string{"url", "host", "path", "instance"},
+			[]string{"url", "host", "path", "protocol", "instance"},
 			nil,
 		),
 		urlCheckTotal: prometheus.NewDesc(
 			"url_check_total",
 			"Total number of checks by status code",
-			[]string{"url", "host", "path", "status_code", "instance"},
+			[]string{"url", "host", "path", "protocol", "status_code", "instance"},
 			nil,
 		),
 		urlError: prometheus.NewDesc(
 			"url_error",
 			"URL error (1 if URL returns network/connection error, 0 otherwise)",
-			[]string{"url", "host", "path", "instance"},
+			[]string{"url", "host", "path", "protocol", "instance"},
 			nil,
 		),
 		urlStatusCodeTotal: prometheus.NewDesc(
 			"url_status_code_total",
 			"Counter for each specific HTTP status code encountered",
-			[]string{"url", "host", "path", "status_code", "instance"},
+			[]string{"url", "host", "path", "protocol", "status_code", "instance"},
 			nil,
 		),
 	}
@@ -88,7 +89,13 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	defer c.mutex.RUnlock()
 
 	for _, result := range c.lastResults {
-		labels := []string{result.URL, result.Host, result.Path, c.config.InstanceID}
+		// Extract protocol from URL
+		protocol := "unknown"
+		if u, err := neturl.Parse(result.URL); err == nil {
+			protocol = u.Scheme
+		}
+		
+		labels := []string{result.URL, result.Host, result.Path, protocol, c.config.InstanceID}
 
 		up := float64(0)
 		if result.Error == nil && result.StatusCode >= 200 && result.StatusCode < 300 {
@@ -137,7 +144,13 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			continue
 		}
 
-		baseLabels := []string{url, result.Host, result.Path}
+		// Extract protocol from URL for counter metrics
+		protocol := "unknown"
+		if u, err := neturl.Parse(url); err == nil {
+			protocol = u.Scheme
+		}
+		
+		baseLabels := []string{url, result.Host, result.Path, protocol}
 
 		for statusCode, count := range statusCounts {
 			checkLabels := append(baseLabels, statusCode, c.config.InstanceID)

@@ -1,5 +1,6 @@
 # Example configuration for URL Exporter
 targets:
+  # HTTP/HTTPS protocols (checked using HTTP HEAD requests)
   - "https://google.com"                           # Google homepage - highly available
   - "https://github.com"                           # GitHub - reliable public service
   - "https://httpbin.org/status/200"               # HTTP testing service
@@ -10,8 +11,20 @@ targets:
   - "https://stackoverflow.com"                    # Stack Overflow - popular site
   - "https://docs.docker.com"                      # Docker documentation
   - "https://kubernetes.io"                        # Kubernetes official site
-  - "https://nonexistent-domain-123.com"          # Nonexistent domain
   - "http://localhost:3000"                       # Local development server
+  
+  # Non-HTTP protocols (checked using TCP connectivity)
+  - "ftp://ftp.gnu.org:21"                        # FTP server connectivity
+  - "ssh://github.com:22"                         # SSH connectivity to GitHub
+  - "smtp://smtp.gmail.com:587"                   # SMTP server connectivity
+  - "telnet://towel.blinkenlights.nl:23"          # Telnet server (Star Wars ASCII)
+  - "mysql://localhost:3306"                      # MySQL database connectivity
+  - "postgres://localhost:5432"                   # PostgreSQL database connectivity
+  - "redis://localhost:6379"                      # Redis connectivity
+  - "mongodb://localhost:27017"                   # MongoDB connectivity
+  
+  # Test cases for error scenarios
+  - "https://nonexistent-domain-123.com"          # Nonexistent domain
   - "https://internal.company.local"              # Internal network URL
   - "https://test.invalid"                        # Invalid TLD
 
