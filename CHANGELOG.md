@@ -1,3 +1,15 @@
+# [2.2.0](https://github.com/jasoet/url_exporter/compare/v2.1.2...v2.2.0) (2025-07-29)
+
+
+### Bug Fixes
+
+* resolve test failures for TLS certificate and URL handling ([dec5a0b](https://github.com/jasoet/url_exporter/commit/dec5a0bb6914cc4b7b2b899b4d09c0a8b90b0a0c))
+
+
+### Features
+
+* add multi-protocol support beyond HTTP/HTTPS ([baa36b1](https://github.com/jasoet/url_exporter/commit/baa36b1932b129a14a1a32aa119ef13f2639d083))
+
 ## [2.1.2](https://github.com/jasoet/url_exporter/compare/v2.1.1...v2.1.2) (2025-07-27)
 
 
